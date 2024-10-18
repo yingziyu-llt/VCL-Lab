@@ -1,5 +1,7 @@
 #include <random>
 
+#include <algorithm>
+
 #include <spdlog/spdlog.h>
 
 #include "Labs/1-Drawing2D/tasks.h"
@@ -26,38 +28,164 @@ namespace VCX::Labs::Drawing2D {
         ImageRGB &       output,
         ImageRGB const & input) {
         // your code here:
+        std::random_device seed;
+        std::mt19937 gen(seed());
+        std::uniform_int_distribution<> my_rand(-500,500);
+        glm::vec3 noise(.0,.0,.0);
+
+        output = input;
+        for(int i = 0;i < input.GetSizeX();i++)
+            for(int j = 0;j < input.GetSizeY();j++) {
+                 double rand = my_rand(gen) / 1000.0;
+                noise = glm::vec3(rand,rand,rand);
+                output.At(i,j) = input.At(i,j) + noise;
+            }
+        DitheringThreshold(output,output);
     }
 
     void DitheringRandomBlueNoise(
         ImageRGB &       output,
         ImageRGB const & input,
         ImageRGB const & noise) {
-        // your code here:
+        output = input;
+        
+        for(int i = 0;i < input.GetSizeX();i++)
+            for(int j = 0;j < input.GetSizeY();j++) {
+                output.At(i,j) = input.At(i,j) + noise.At(i,j) - glm::vec3(0.5,0.5,0.5);
+            }
+        DitheringThreshold(output,output);
     }
 
     void DitheringOrdered(
         ImageRGB &       output,
         ImageRGB const & input) {
         // your code here:
-    }
+        for (int i = 0;i < input.GetSizeX();i++) {
+            for (int j = 0;j < input.GetSizeY();j++) {
+                int curr_col = (int)(input.At(i,j).r * 10);
+                int ii = i * 3 + 1,jj = j * 3 + 1;
+                for (int k = 1;k <= curr_col;k++) {
+                    if (k == 1) output.At(ii,jj) = glm::vec3(1,1,1);
+                    if (k == 2) output.At(ii - 1,jj) = glm::vec3(1,1,1);
+                    if (k == 3) output.At(ii,jj + 1) = glm::vec3(1,1,1);
+                    if (k == 4) output.At(ii + 1,jj) = glm::vec3(1,1,1);
+                    if (k == 5) output.At(ii + 1,jj - 1) = glm::vec3(1,1,1);
+                    if (k == 6) output.At(ii - 1,jj + 1) = glm::vec3(1,1,1);
+                    if (k == 7) output.At(ii - 1,jj - 1) = glm::vec3(1,1,1);
+                    if (k == 8) output.At(ii + 1,jj + 1) = glm::vec3(1,1,1);
+                    if (k == 9) output.At(ii,jj - 1) = glm::vec3(1,1,1);
+                }
+            } 
+        }
 
+    }
     void DitheringErrorDiffuse(
         ImageRGB &       output,
         ImageRGB const & input) {
         // your code here:
+        glm::vec3 tmp(0,0,0);
+        output = input;
+        for (int i = 0;i < input.GetSizeX();i++) {
+            for (int j = 0;j < input.GetSizeY();j++) {
+                glm::vec3 error(0,0,0);
+                glm::vec3 old_pix = output.At(i,j);
+                if(old_pix.r > 0.5) {
+                    error = old_pix -  glm::vec3(1,1,1);
+                    output.At(i,j) = glm::vec3(1,1,1);
+                } else {
+                    error = old_pix - glm::vec3(0,0,0);
+                    output.At(i,j) = glm::vec3(0,0,0);
+                }
+                
+                auto fn = [&](int ii,int jj,float rate) -> glm::vec3 {
+                    tmp = output.At(ii,jj);
+                    return tmp + rate * error;
+                };
+                
+                if(j < input.GetSizeY() - 1)
+                    output.At(i,j + 1) = fn(i,j + 1,7.0 / 16.0);
+                if(j > 0 && i < input.GetSizeX() - 1)
+                    output.At(i + 1,j - 1) = fn(i + 1,j - 1,3.0 / 16.0);
+                if(i < input.GetSizeX() - 1)
+                    output.At(i + 1,j) = fn(i + 1,j,5.0 / 16.0);
+                if(i < input.GetSizeX() - 1 && j < input.GetSizeY() - 1)
+                    output.At(i + 1,j + 1) = fn(i + 1,j + 1,1.0 / 16.0);
+            }
+        }
     }
 
     /******************* 2.Image Filtering *****************/
+
+    void Convolution(
+        ImageRGB &output,
+        ImageRGB const &input,
+        std::array<std::array<glm::vec3, 3>, 3> const & kernel) {
+            glm::vec3 sum(0,0,0);
+            for(int i = 0;i < 3;i++)
+                for(int j = 0;j < 3;j++) {
+                    sum += kernel[i][j];
+                }
+            for (int i = 0;i < input.GetSizeX() - 2;i++) {
+                for (int j = 0;j < input.GetSizeY() - 2;j++) {
+                    glm::vec3 tmp(0,0,0);
+                    for (int ii = 0;ii < 3;ii++) {
+                        for (int jj = 0;jj < 3;jj++) {
+                            glm::vec3 pix = input.At(i + ii,j + jj);
+                            tmp += kernel[ii][jj] * pix;
+                        }
+                    }
+                    if(sum.r != 0 && sum.g != 0 && sum.b != 0)
+                        tmp /= sum;
+                    output.At(i,j) = glm::abs(tmp);
+                }
+            }
+    }
+
     void Blur(
         ImageRGB &       output,
         ImageRGB const & input) {
-        // your code here:
+        std::array<std::array<glm::vec3, 3>, 3> kernel = {
+            {
+                {glm::vec3(1,1,1),glm::vec3(2,2,2),glm::vec3(1,1,1)},
+                {glm::vec3(2,2,2),glm::vec3(4,4,4),glm::vec3(2,2,2)},
+                {glm::vec3(1,1,1),glm::vec3(2,2,2),glm::vec3(1,1,1)}
+            }
+        };
+        Convolution(output, input, kernel);
     }
 
     void Edge(
         ImageRGB &       output,
         ImageRGB const & input) {
         // your code here:
+        std::array<std::array<glm::vec3, 3>, 3> horizontal_kernal = {
+            {
+                {glm::vec3(-1,-1,-1),glm::vec3(0,0,0),glm::vec3(1,1,1)},
+                {glm::vec3(-2,-2,-2),glm::vec3(0,0,0),glm::vec3(2,2,2)},
+                {glm::vec3(-1,-1,-1),glm::vec3(0,0,0),glm::vec3(1,1,1)}
+            }
+        };
+        std::array<std::array<glm::vec3, 3>, 3> vertical_kernal = {
+            {
+                {glm::vec3(1,1,1),glm::vec3(2,2,2),glm::vec3(1,1,1)},
+                {glm::vec3(0,0,0),glm::vec3(0,0,0),glm::vec3(0,0,0)},
+                {glm::vec3(-1,-1,-1),glm::vec3(-2,-2,-2),glm::vec3(-1,-1,-1)}
+            }
+        };
+        ImageRGB horizontal_edge = input,vertical_edge = input;
+        Convolution(horizontal_edge, input, vertical_kernal);
+        Convolution(vertical_edge, input, horizontal_kernal);
+        for (int i = 0;i < input.GetSizeX();i++) {
+            for (int j = 0;j < input.GetSizeY();j++) {
+                glm::vec3 tmp1,tmp2,res;
+                tmp1 = horizontal_edge.At(i,j);
+                tmp2 = vertical_edge.At(i,j);
+                tmp1 = tmp1 * tmp1;
+                tmp2 = tmp2 * tmp2;
+                res = glm::sqrt(tmp1 + tmp2);
+                output.At(i,j) = res;
+            }
+        }
     }
 
     /******************* 3. Image Inpainting *****************/
@@ -104,7 +232,37 @@ namespace VCX::Labs::Drawing2D {
         glm::vec3 const  color,
         glm::ivec2 const p0,
         glm::ivec2 const p1) {
-        // your code here:
+        
+        // vanilla algorithm
+
+        /*int x0 = p0.x,y0 = p0.y,x1 = p1.x,y1 = p1.y;
+
+        for(int i = x0;i <= x1;i++)
+        {
+            float ny = (y1 - y0) / (float)(x1 - x0) * (i - x0) + y0;
+            canvas.At(i,(int)round(ny)) = color;
+        }*/
+
+        // Bresenham
+        int x0 = p0.x, y0 = p0.y, x1 = p1.x, y1 = p1.y;
+        int dx = abs(x1 - x0), dy = abs(y1 - y0);
+        int sx = (x0 < x1) ? 1 : -1;
+        int sy = (y0 < y1) ? 1 : -1; 
+        int err = dx - dy;
+        while (true) {
+            canvas.At(x0, y0) = color;
+
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
     }
 
     /******************* 5. Triangle Drawing *****************/
@@ -114,7 +272,42 @@ namespace VCX::Labs::Drawing2D {
         glm::ivec2 const p0,
         glm::ivec2 const p1,
         glm::ivec2 const p2) {
-        // your code here:
+        glm::ivec2 p[3] = {p0, p1, p2};
+        std::sort(p, p + 3, [](glm::ivec2 const & a, glm::ivec2 const & b) { return a.y < b.y; });
+        for(int y = p[0].y;y < p[1].y;++y) {
+            int x1 = p[0].x + (y - p[0].y) * (p[1].x - p[0].x) / (p[1].y - p[0].y);
+            int x2 = p[0].x + (y - p[0].y) * (p[2].x - p[0].x) / (p[2].y - p[0].y);
+            if(x1 > x2) std::swap(x1, x2);
+            for(int x = x1;x <= x2;++x) {
+                canvas.At(x, y) = color;
+            }
+        }
+        for(int y = p[1].y;y <= p[1].y;++y) {
+            int x1,x2;
+            if(p[1].y == p[2].y) {
+                x1 = p[1].x;
+                x2 = p[2].x;
+            } else if(p[1].y == p[0].y) {
+                x1 = p[0].x;
+                x2 = p[1].x;
+            } else {
+                x1 = p[0].x + (y - p[0].y) * (p[1].x - p[0].x) / (p[1].y - p[0].y);
+                x2 = p[0].x + (y - p[0].y) * (p[2].x - p[0].x) / (p[2].y - p[0].y);
+            }
+            if(x1 > x2) std::swap(x1, x2);
+            for(int x = x1;x <= x2;++x) {
+                canvas.At(x, y) = color; 
+            }
+        }
+        for(int y = p[1].y + 1;y <= p[2].y;++y) {
+            int x1 = p[1].x + (y - p[1].y) * (p[2].x - p[1].x) / (p[2].y - p[1].y);
+            int x2 = p[0].x + (y - p[0].y) * (p[2].x - p[0].x) / (p[2].y - p[0].y);
+            if(x1 > x2) std::swap(x1, x2);
+            for(int x = x1;x <= x2;++x) {
+                canvas.At(x, y) = color;
+            }
+        }
+        
     }
 
     /******************* 6. Image Supersampling *****************/
@@ -122,7 +315,44 @@ namespace VCX::Labs::Drawing2D {
         ImageRGB &       output,
         ImageRGB const & input,
         int              rate) {
-        // your code here:
+
+        /*output = ImageRGB(input.GetSizeX() / rate + 1, input.GetSizeY() / rate + 1);
+        for (int y = 0; y < input.GetSizeY(); y += rate) {
+            for (int x = 0; x < input.GetSizeX(); x += rate) {
+                int size = rate * rate;
+                glm::vec3 color = glm::vec3(0, 0, 0);
+                for (int i = 0; i < rate; ++i) {
+                    for (int j = 0; j < rate; ++j) {
+                        if(y + j >= input.GetSizeY() || x + i >= input.GetSizeX()){
+                            size -= 1;
+                            continue;
+                        }
+                        color += input.At(x + i, y + j);  
+                    }
+                }
+                color /= size;
+                output.At(x / rate, y / rate) = color;
+            }
+        }*/
+
+       output = input;
+       for(int x = 0;x < input.GetSizeX();++x) {
+           for(int y = 0;y < input.GetSizeY();++y) {
+               glm::vec3 color = glm::vec3(0, 0, 0);
+               int size = rate * rate;
+               for(int i = 0;i < rate;++i) {
+                   for(int j = 0;j < rate;++j) {
+                       if(y + j >= input.GetSizeY() || x + i >= input.GetSizeX()){
+                           size -= 1;
+                           continue;
+                       }
+                       color += input.At(x + i, y + j);
+                   }
+               }
+               color /= size;
+               output.At(x, y) = color;
+           }
+       }
     }
 
     /******************* 7. Bezier Curve *****************/
@@ -130,7 +360,13 @@ namespace VCX::Labs::Drawing2D {
     glm::vec2 CalculateBezierPoint(
         std::span<glm::vec2> points,
         float const          t) {
-        // your code here:
-        return glm::vec2 {0, 0};
+            if(points.size() == 1) {
+                return points[0];
+            }
+            std::vector<glm::vec2> newPoints(points.size() - 1);
+            for(int i = 0;i < newPoints.size();++i) {
+                newPoints[i] = (1 - t) * points[i] + t * points[i + 1];
+            }
+            return CalculateBezierPoint(newPoints, t);
     }
 } // namespace VCX::Labs::Drawing2D
