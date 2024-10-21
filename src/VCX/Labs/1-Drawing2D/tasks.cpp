@@ -317,7 +317,7 @@ namespace VCX::Labs::Drawing2D {
         int              rate) {
         //SSAA algorithm
 
-        ImageRGB temp = VCX::Labs::Common::CreatePureImageRGB(input.GetSizeX(),input.GetSizeY(),glm::vec3(0,0,0));
+        ImageRGB temp = input;
         for(int i = 0;i < input.GetSizeX();i += rate) {
             for(int j = 0;j < input.GetSizeY();j += rate) {
                 int x = i + rate / 2,y = j + rate / 2;
@@ -335,7 +335,7 @@ namespace VCX::Labs::Drawing2D {
                 for(int k = 0;k < rate;k++) {
                     for(int l = 0;l < rate;l++) {
                         if(i + k < input.GetSizeX() && j + l < input.GetSizeY())
-                            temp.At(x + k,y + l) = color;
+                            temp.At(i + k,j + l) = color;
                     }
                 }
             }
@@ -343,13 +343,27 @@ namespace VCX::Labs::Drawing2D {
         output = VCX::Labs::Common::CreatePureImageRGB(320,320,{0.0f,0.0f,0.0f});
         for(int i = 0;i < output.GetSizeX();i++) {
             for(int j = 0;j < output.GetSizeY();j++) {
-                float newx = i * 1.0 * input.GetSizeX() / output.GetSizeX(),newy = j * 1.0 * input.GetSizeY() / output.GetSizeY();
-                auto interpolation = [&](float x,float y) -> glm::vec3 {
-                    int xx = int(x),yy = int(y);
-                    glm::vec3 v1 = temp.At(xx,yy),v2 = temp.At(xx + 1,yy),v3 = temp.At(xx,yy + 1),v4 = temp.At(xx + 1,yy + 1);
-                    return v1 * (1 - x) * (1 - y) + v2 * x * (1 - y) + v3 * (1 - x) * y + v4 * x * y;
-                };
-                output.At(i,j) = interpolation(newx,newy);
+                float newx = i * 1.0f * input.GetSizeX() / output.GetSizeX();
+                float newy = j * 1.0f * input.GetSizeY() / output.GetSizeY();
+
+                int xx = static_cast<int>(newx);
+                int yy = static_cast<int>(newy);
+
+                float fx = newx - xx;
+                float fy = newy - yy;
+
+                if (xx >= input.GetSizeX() - 1) xx = input.GetSizeX() - 2;
+                if (yy >= input.GetSizeY() - 1) yy = input.GetSizeY() - 2;
+
+                glm::vec3 v1 = temp.At(xx, yy);
+                glm::vec3 v2 = temp.At(xx + 1, yy);
+                glm::vec3 v3 = temp.At(xx, yy + 1);
+                glm::vec3 v4 = temp.At(xx + 1, yy + 1);
+
+                glm::vec3 color = v1 * (1 - fx) * (1 - fy) + v2 * fx * (1 - fy) +
+                                  v3 * (1 - fx) * fy + v4 * fx * fy;
+
+                output.At(i, j) = color;
             }
         }
     }

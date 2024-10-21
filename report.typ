@@ -134,9 +134,11 @@ plotLine(x0, y0, x1, y1)
 
 依题意模拟即可。
 
-不知道什么原因导致无法正常保存，已经尝试过生成`size/rate`大小的图片和与原图大小相同的图，但是保存时均闪退。由于不知道怎么调试，这里给出截图。
+先做一个下采样，求出对应size*size窗口下的平均值，将这个窗口的所有像素都设置为这个均值。
 
-#figure(image("pic/Supersampling.png",height: 35%), caption: "Image Supersampling,rate=9")
+新建一个320*320的图像，找到这个新图上所有点对应的原位置，做双线性插值，就得到了结果。
+
+#figure(image("pic/a copy.png",height: 35%), caption: "Image Supersampling,rate=5")图像为a.copy.png
 
 
 == Task 7: Bezier Curve (1')
