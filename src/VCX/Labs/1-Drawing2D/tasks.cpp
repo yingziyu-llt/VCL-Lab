@@ -315,44 +315,43 @@ namespace VCX::Labs::Drawing2D {
         ImageRGB &       output,
         ImageRGB const & input,
         int              rate) {
+        //SSAA algorithm
 
-        /*output = ImageRGB(input.GetSizeX() / rate + 1, input.GetSizeY() / rate + 1);
-        for (int y = 0; y < input.GetSizeY(); y += rate) {
-            for (int x = 0; x < input.GetSizeX(); x += rate) {
+        ImageRGB temp = VCX::Labs::Common::CreatePureImageRGB(input.GetSizeX(),input.GetSizeY(),glm::vec3(0,0,0));
+        for(int i = 0;i < input.GetSizeX();i += rate) {
+            for(int j = 0;j < input.GetSizeY();j += rate) {
+                int x = i + rate / 2,y = j + rate / 2;
                 int size = rate * rate;
-                glm::vec3 color = glm::vec3(0, 0, 0);
-                for (int i = 0; i < rate; ++i) {
-                    for (int j = 0; j < rate; ++j) {
-                        if(y + j >= input.GetSizeY() || x + i >= input.GetSizeX()){
-                            size -= 1;
-                            continue;
-                        }
-                        color += input.At(x + i, y + j);  
+                glm::vec3 color(0,0,0);
+                for(int k = 0;k < rate;k++) {
+                    for(int l = 0;l < rate;l++) {
+                        if(i + k < input.GetSizeX() && j + l < input.GetSizeY())
+                            color += input.At(i + k,j + l);
+                        else
+                            size--;
                     }
                 }
                 color /= size;
-                output.At(x / rate, y / rate) = color;
+                for(int k = 0;k < rate;k++) {
+                    for(int l = 0;l < rate;l++) {
+                        if(i + k < input.GetSizeX() && j + l < input.GetSizeY())
+                            temp.At(x + k,y + l) = color;
+                    }
+                }
             }
-        }*/
-
-       output = input;
-       for(int x = 0;x < input.GetSizeX();++x) {
-           for(int y = 0;y < input.GetSizeY();++y) {
-               glm::vec3 color = glm::vec3(0, 0, 0);
-               int size = rate * rate;
-               for(int i = 0;i < rate;++i) {
-                   for(int j = 0;j < rate;++j) {
-                       if(y + j >= input.GetSizeY() || x + i >= input.GetSizeX()){
-                           size -= 1;
-                           continue;
-                       }
-                       color += input.At(x + i, y + j);
-                   }
-               }
-               color /= size;
-               output.At(x, y) = color;
-           }
-       }
+        }
+        output = VCX::Labs::Common::CreatePureImageRGB(320,320,{0.0f,0.0f,0.0f});
+        for(int i = 0;i < output.GetSizeX();i++) {
+            for(int j = 0;j < output.GetSizeY();j++) {
+                float newx = i * 1.0 * input.GetSizeX() / output.GetSizeX(),newy = j * 1.0 * input.GetSizeY() / output.GetSizeY();
+                auto interpolation = [&](float x,float y) -> glm::vec3 {
+                    int xx = int(x),yy = int(y);
+                    glm::vec3 v1 = temp.At(xx,yy),v2 = temp.At(xx + 1,yy),v3 = temp.At(xx,yy + 1),v4 = temp.At(xx + 1,yy + 1);
+                    return v1 * (1 - x) * (1 - y) + v2 * x * (1 - y) + v3 * (1 - x) * y + v4 * x * y;
+                };
+                output.At(i,j) = interpolation(newx,newy);
+            }
+        }
     }
 
     /******************* 7. Bezier Curve *****************/
