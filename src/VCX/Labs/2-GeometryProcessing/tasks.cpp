@@ -32,8 +32,8 @@ namespace VCX::Labs::GeometryProcessing {
             for (std::size_t i = 0; i < prev_mesh.Positions.size(); ++i) {
                 // Update the currently existing vetex v from prev_mesh.Positions.
                 // Then add the updated vertex into curr_mesh.Positions.
-                auto v           = G.Vertex(i);
-                auto neighbors   = v->Neighbors();
+                auto v         = G.Vertex(i);
+                auto neighbors = v->Neighbors();
                 // your code here:
             }
             // We create an array to store indices of the newly generated vertices.
@@ -80,8 +80,7 @@ namespace VCX::Labs::GeometryProcessing {
                 curr_mesh.Indices.insert(
                     curr_mesh.Indices.end(),
                     reinterpret_cast<std::uint32_t *>(toInsert),
-                    reinterpret_cast<std::uint32_t *>(toInsert) + 12U
-                );
+                    reinterpret_cast<std::uint32_t *>(toInsert) + 12U);
             }
 
             if (curr_mesh.Positions.size() == 0) {
@@ -108,18 +107,65 @@ namespace VCX::Labs::GeometryProcessing {
             return;
         }
 
+        bool             visit[output.Positions.size()] = { false };
+        std::vector<int> boundary;
+
         // Set boundary UVs for boundary vertices.
-        // your code here: directly edit output.TexCoords
+        for (std::size_t i = 0; i < input.Positions.size(); ++i) {
+            DCEL::VertexProxy const * v = G.Vertex(i);
+            if (v->OnBoundary()) {
+                while (true) {
+                    auto next = v->BoundaryNeighbors();
+                    if (! visit[next.first]) {
+                        boundary.push_back(next.first);
+                        visit[next.first] = true;
+                        v                 = G.Vertex(next.first);
+                    } else if (! visit[next.second]) {
+                        boundary.push_back(next.second);
+                        visit[next.second] = true;
+                        v                  = G.Vertex(next.second);
+                    } else {
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        int    total_len = boundary.size();
+        double step      = 3.1415926 * 2.0 / total_len;
+
+        for (int i = 0; i < total_len; ++i) {
+            output.TexCoords[boundary[i]] = glm::vec2 { std::cos(step * i), std::sin(step * i) };
+        }
+
+        std::vector<std::vector<float>> D(output.Positions.size(), std::vector<float>(output.Positions.size(), 0.0f));
+
+        for (int i = 0; i < output.Positions.size(); ++i) {
+            DCEL::VertexProxy const * v = G.Vertex(i);
+            for (auto neighbor : v->Neighbors()) {
+                D[i][neighbor] = glm::length(output.Positions[i] - output.Positions[neighbor]);
+            }
+        }
 
         // Solve equation via Gauss-Seidel Iterative Method.
         for (int k = 0; k < numIterations; ++k) {
-            // your code here:
+            for (int i = 0; i < output.Positions.size(); ++i) {
+                if (G.Vertex(i)->OnBoundary()) continue;
+                float sum_D = 0.0f;
+                for (auto j : G.Vertex(i)->Neighbors())
+                    sum_D += D[i][j];
+                glm::vec2 new_t = glm::vec2(0, 0);
+                for (auto j : G.Vertex(i)->Neighbors()) {
+                    new_t += D[i][j] / sum_D * output.TexCoords[j];
+                }
+                output.TexCoords[i] = new_t;
+            }
         }
     }
 
     /******************* 3. Mesh Simplification *****************/
     void SimplifyMesh(Engine::SurfaceMesh const & input, Engine::SurfaceMesh & output, float simplification_ratio) {
-
         DCEL G(input);
         if (! G.IsManifold()) {
             spdlog::warn("VCX::Labs::GeometryProcessing::SimplifyMesh(..): Non-manifold mesh.");
@@ -136,7 +182,7 @@ namespace VCX::Labs::GeometryProcessing {
 
         // Compute Kp matrix of the face f.
         auto UpdateQ {
-            [&G, &output] (DCEL::Triangle const * f) -> glm::mat4 {
+            [&G, &output](DCEL::Triangle const * f) -> glm::mat4 {
                 glm::mat4 Kp;
                 // your code here:
                 return Kp;
@@ -145,19 +191,18 @@ namespace VCX::Labs::GeometryProcessing {
 
         // The struct to record contraction info.
         struct ContractionPair {
-            DCEL::HalfEdge const * edge;            // which edge to contract; if $edge == nullptr$, it means this pair is no longer valid
-            glm::vec4              targetPosition;  // the targetPosition $v$ for vertex $edge->From()$ to move to
-            float                  cost;            // the cost $v.T * Qbar * v$
+            DCEL::HalfEdge const * edge;           // which edge to contract; if $edge == nullptr$, it means this pair is no longer valid
+            glm::vec4              targetPosition; // the targetPosition $v$ for vertex $edge->From()$ to move to
+            float                  cost;           // the cost $v.T * Qbar * v$
         };
 
         // Given an edge (v1->v2), the positions of its two endpoints (p1, p2) and the Q matrix (Q1+Q2),
         //     return the ContractionPair struct.
         static constexpr auto MakePair {
-            [] (DCEL::HalfEdge const * edge,
-                glm::vec3 const & p1,
-                glm::vec3 const & p2,
-                glm::mat4 const & Q
-            ) -> ContractionPair {
+            [](DCEL::HalfEdge const * edge,
+               glm::vec3 const &      p1,
+               glm::vec3 const &      p2,
+               glm::mat4 const &      Q) -> ContractionPair {
                 // your code here:
                 return {};
             }
@@ -167,18 +212,18 @@ namespace VCX::Labs::GeometryProcessing {
         // pairs:    store ContractionPair
         // Qv:       $Qv[idx]$ is the Q matrix of vertex with index $idx$
         // Kf:       $Kf[idx]$ is the Kp matrix of face with index $idx$
-        std::unordered_map<DCEL::EdgeIdx, std::size_t> pair_map; 
-        std::vector<ContractionPair>                  pairs; 
+        std::unordered_map<DCEL::EdgeIdx, std::size_t> pair_map;
+        std::vector<ContractionPair>                   pairs;
         std::vector<glm::mat4>                         Qv(G.NumOfVertices(), glm::mat4(0));
-        std::vector<glm::mat4>                         Kf(G.NumOfFaces(),    glm::mat4(0));
+        std::vector<glm::mat4>                         Kf(G.NumOfFaces(), glm::mat4(0));
 
         // Initially, we compute Q matrix for each faces and it accumulates at each vertex.
         for (auto f : G.Faces()) {
-            auto Q                 = UpdateQ(f);
+            auto Q = UpdateQ(f);
             Qv[f->VertexIndex(0)] += Q;
             Qv[f->VertexIndex(1)] += Q;
             Qv[f->VertexIndex(2)] += Q;
-            Kf[G.IndexOf(f)]       = Q;
+            Kf[G.IndexOf(f)] = Q;
         }
 
         pair_map.reserve(G.NumOfFaces() * 3);
@@ -201,12 +246,12 @@ namespace VCX::Labs::GeometryProcessing {
             std::size_t min_idx = ~0;
             for (std::size_t i = 1; i < pairs.size(); ++i) {
                 if (! pairs[i].edge) continue;
-                if (!~min_idx || pairs[i].cost < pairs[min_idx].cost) {
+                if (! ~min_idx || pairs[i].cost < pairs[min_idx].cost) {
                     if (G.IsContractable(pairs[i].edge)) min_idx = i;
                     else pairs[i].edge = nullptr;
                 }
             }
-            if (!~min_idx) break;
+            if (! ~min_idx) break;
 
             // top:    the contractable pair with minimal cost
             // v1:     the reserved vertex
@@ -214,10 +259,10 @@ namespace VCX::Labs::GeometryProcessing {
             // result: the contract result
             // ring:   the edge ring of vertex v1
             ContractionPair & top    = pairs[min_idx];
-            auto               v1     = top.edge->From();
-            auto               v2     = top.edge->To();
-            auto               result = G.Contract(top.edge);
-            auto               ring   = G.Vertex(v1)->Ring();
+            auto              v1     = top.edge->From();
+            auto              v2     = top.edge->To();
+            auto              result = G.Contract(top.edge);
+            auto              ring   = G.Vertex(v1)->Ring();
 
             top.edge             = nullptr;            // The contraction has already been done, so the pair is no longer valid. Mark it as invalid.
             output.Positions[v1] = top.targetPosition; // Update the positions.
@@ -251,7 +296,6 @@ namespace VCX::Labs::GeometryProcessing {
             // Finally, as the Q matrix changed, we should update the relative $ContractionPair$ in $pairs$.
             // Any pair with the Q matrix of its endpoints changed, should be remade by $MakePair$.
             // your code here:
-
         }
 
         // In the end, we check if the result mesh is watertight and manifold.
@@ -264,12 +308,86 @@ namespace VCX::Labs::GeometryProcessing {
     }
 
     /******************* 4. Mesh Smoothing *****************/
+
+    auto UniformLaplacian(Engine::SurfaceMesh const & input) {
+        DCEL G(input); // 初始化
+
+        std::vector<glm::vec3> laplacian_values(input.Positions.size(), glm::vec3(0.0f));
+
+        for (int i = 0; i < input.Positions.size(); ++i) {
+            DCEL::VertexProxy const * v          = G.Vertex(i);
+            glm::vec3                 center_pos = input.Positions[i];
+
+            std::vector<glm::vec3> neighbor_positions;
+            for (auto neighbor_idx : v->Neighbors()) {
+                neighbor_positions.push_back(input.Positions[neighbor_idx]);
+            }
+
+            glm::vec3 laplacian(0.0f);
+            for (auto & neighbor_pos : neighbor_positions) {
+                laplacian += (neighbor_pos - center_pos);
+            }
+            int degree = neighbor_positions.size();
+            if (degree > 0) {
+                laplacian /= degree;
+            }
+
+            laplacian_values[i] = laplacian;
+        }
+        return laplacian_values;
+    }
+
+    auto CotangentLaplacian(Engine::SurfaceMesh const & input) {
+        DCEL G(input);
+
+        static constexpr auto cot {
+            [](glm::vec3 vAngle, glm::vec3 v1, glm::vec3 v2) -> float {
+                // your code here:
+                float dot   = glm::dot(v1 - vAngle, v2 - vAngle);
+                float cross = glm::length(glm::cross(v1 - vAngle, v2 - vAngle));
+                if (cross < 0.001) cross = 0.001f;
+                return dot / cross;
+            }
+        };
+
+        std::vector<glm::vec3> laplacian_values(input.Positions.size(), glm::vec3(0.0f));
+
+        for (int i = 0; i < input.Positions.size(); ++i) {
+            float                     w          = 0.0f;
+            DCEL::VertexProxy const * v          = G.Vertex(i);
+            glm::vec3                 center_pos = input.Positions[i];
+
+            std::vector<glm::vec3> neighbor_positions;
+            for (auto neighbor_idx : v->Neighbors()) {
+                neighbor_positions.push_back(input.Positions[neighbor_idx]);
+            }
+            glm::vec3 laplacian(0.0f);
+            float     wi           = 0.0f;
+            glm::vec3 previous_pos = neighbor_positions[neighbor_positions.size() - 1];
+
+            for (auto & neighbor_pos : neighbor_positions) {
+                wi = cot(center_pos, previous_pos, neighbor_pos);
+                laplacian += wi * (neighbor_pos - center_pos);
+                w += wi;
+                previous_pos = neighbor_pos;
+            }
+
+            laplacian /= w;
+
+            laplacian_values[i] = laplacian;
+        }
+        return laplacian_values;
+    }
+
     void SmoothMesh(Engine::SurfaceMesh const & input, Engine::SurfaceMesh & output, std::uint32_t numIterations, float lambda, bool useUniformWeight) {
         // Define function to compute cotangent value of the angle v1-vAngle-v2
         static constexpr auto GetCotangent {
-            [] (glm::vec3 vAngle, glm::vec3 v1, glm::vec3 v2) -> float {
+            [](glm::vec3 vAngle, glm::vec3 v1, glm::vec3 v2) -> float {
                 // your code here:
-                return 0.0f;
+                float dot   = glm::dot(glm::normalize(v1 - vAngle), glm::normalize(v2 - vAngle));
+                float cross = glm::length(glm::cross(v1 - vAngle, v2 - vAngle));
+                if (cross < 0.001) return 100000000.0f;
+                return dot / cross;
             }
         };
 
@@ -283,13 +401,14 @@ namespace VCX::Labs::GeometryProcessing {
             spdlog::warn("VCX::Labs::GeometryProcessing::SmoothMesh(..): Non-watertight mesh.");
             return;
         }
-
         Engine::SurfaceMesh prev_mesh;
-        prev_mesh.Positions = input.Positions;
+        prev_mesh = input;
         for (std::uint32_t iter = 0; iter < numIterations; ++iter) {
-            Engine::SurfaceMesh curr_mesh = prev_mesh;
+            Engine::SurfaceMesh    curr_mesh = prev_mesh;
+            std::vector<glm::vec3> laplacian = useUniformWeight ? UniformLaplacian(curr_mesh) : CotangentLaplacian(curr_mesh);
             for (std::size_t i = 0; i < input.Positions.size(); ++i) {
-                // your code here: curr_mesh.Positions[i] = ...
+                curr_mesh.Positions[i] = prev_mesh.Positions[i] + lambda * laplacian[i];
+                curr_mesh.Positions[i] = lambda * prev_mesh.Positions[i] + (1 - lambda) * curr_mesh.Positions[i];
             }
             // Move curr_mesh to prev_mesh.
             prev_mesh.Swap(curr_mesh);
