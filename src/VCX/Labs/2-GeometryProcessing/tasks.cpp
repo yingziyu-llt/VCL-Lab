@@ -139,26 +139,15 @@ namespace VCX::Labs::GeometryProcessing {
             output.TexCoords[boundary[i]] = glm::vec2 { std::cos(step * i), std::sin(step * i) };
         }
 
-        std::vector<std::vector<float>> D(output.Positions.size(), std::vector<float>(output.Positions.size(), 0.0f));
-
-        for (int i = 0; i < output.Positions.size(); ++i) {
-            DCEL::VertexProxy const * v = G.Vertex(i);
-            for (auto neighbor : v->Neighbors()) {
-                D[i][neighbor] = glm::length(output.Positions[i] - output.Positions[neighbor]);
-            }
-        }
-
         // Solve equation via Gauss-Seidel Iterative Method.
         for (int k = 0; k < numIterations; ++k) {
             for (int i = 0; i < output.Positions.size(); ++i) {
                 if (G.Vertex(i)->OnBoundary()) continue;
-                float sum_D = 0.0f;
-                for (auto j : G.Vertex(i)->Neighbors())
-                    sum_D += D[i][j];
                 glm::vec2 new_t = glm::vec2(0, 0);
                 for (auto j : G.Vertex(i)->Neighbors()) {
-                    new_t += D[i][j] / sum_D * output.TexCoords[j];
+                    new_t += output.TexCoords[j];
                 }
+                new_t /= G.Vertex(i)->Neighbors().size(); // lambda = 1/n,result is terrible ,but works hhh
                 output.TexCoords[i] = new_t;
             }
         }
@@ -184,7 +173,22 @@ namespace VCX::Labs::GeometryProcessing {
         auto UpdateQ {
             [&G, &output](DCEL::Triangle const * f) -> glm::mat4 {
                 glm::mat4 Kp;
-                // your code here:
+                glm::mat3 vec = {output.Positions[f->VertexIndex(0)], output.Positions[f->VertexIndex(1)], output.Positions[f->VertexIndex(2)]};
+                vec           = glm::transpose(vec);
+                glm::vec3 par(-1.0f, -1.0f, -1.0f);
+                par           = glm::inverse(vec) * par;
+                float     dot = sqrt(glm::dot(par, par));
+                glm::vec4 q   = glm::vec4(par, 1.0f);
+                if (dot > 10000.0f) {
+                    return glm::mat4(0);
+                }
+                q *= 1.0f / dot;
+                Kp = glm::mat4(
+                    q.x * q.x, q.x * q.y, q.x * q.z, q.x * q.w, 
+                    q.y * q.x, q.y * q.y, q.y * q.z, q.y * q.w, 
+                    q.z * q.x, q.z * q.y, q.z * q.z, q.z * q.w, 
+                    q.w * q.x, q.w * q.y, q.w * q.z, q.w * q.w
+                    );
                 return Kp;
             }
         };
@@ -203,8 +207,38 @@ namespace VCX::Labs::GeometryProcessing {
                glm::vec3 const &      p1,
                glm::vec3 const &      p2,
                glm::mat4 const &      Q) -> ContractionPair {
-                // your code here:
-                return {};
+                ContractionPair result;
+                result.edge = edge;
+                glm::mat4 Qq = {
+                    Q[0][0],Q[1][0],Q[2][0],0,
+                    Q[0][1],Q[1][1],Q[2][1],0,
+                    Q[0][2],Q[1][2],Q[2][2],0,
+                    Q[0][3],Q[1][3],Q[2][3],1,
+                };
+                if (glm::determinant(Qq) > 0.001f) {
+                    glm::vec4 targetPosition = glm::inverse(Qq) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                    result.targetPosition    = targetPosition;
+                    result.cost              = glm::dot(targetPosition, Q * targetPosition);
+                } else {
+                    glm::vec4 from = glm::vec4(p1, 1.0f);
+                    glm::vec4 to   = glm::vec4(p2, 1.0f);
+                    glm::vec4 mid  = 0.5f * (from + to);
+                    auto      cost = [&](glm::vec4 const & v) -> float {
+                        return glm::dot(v, Q * v);
+                    };
+                    if (cost(from) < cost(to)) {
+                        result.targetPosition = from;
+                        result.cost           = cost(from);
+                    } else {
+                        result.targetPosition = to;
+                        result.cost           = cost(to);
+                    }
+                    if (cost(mid) < result.cost) {
+                        result.targetPosition = mid;
+                        result.cost           = cost(mid);
+                    }
+                }
+                return result;
             }
         };
 
@@ -291,11 +325,29 @@ namespace VCX::Labs::GeometryProcessing {
                 //        update Q matrix of each vertex on the ring (update $Qv$).
                 //     3. Update Q matrix of vertex v1 as well (update $Qv$).
                 //     4. Update $Kf$.
+                auto new_Kp = UpdateQ(e->Face());
+                Qv[e->From()] += new_Kp - Kf[G.IndexOf(e->Face())];
+                Qv[e->To()] += new_Kp - Kf[G.IndexOf(e->Face())];
+                Qv[v1] += new_Kp;
+                Kf[G.IndexOf(e->Face())] = new_Kp;
             }
 
             // Finally, as the Q matrix changed, we should update the relative $ContractionPair$ in $pairs$.
             // Any pair with the Q matrix of its endpoints changed, should be remade by $MakePair$.
             // your code here:
+            for (auto e : ring) {
+                auto v2    = e->To();
+                auto ring2 = G.Vertex(v2)->Ring();
+                for (auto e2 : ring2) {
+                    if (! G.IsContractable(e2->NextEdge())) {
+                        pairs[pair_map[G.IndexOf(e2->NextEdge())]].edge = nullptr;
+                    } else {
+                        auto vf                                    = e2->To();
+                        auto pair2                                 = MakePair(e2->NextEdge(), input.Positions[v2], input.Positions[vf], Qv[v2] + Qv[vf]);
+                        pairs[pair_map[G.IndexOf(e2->NextEdge())]] = pair2;
+                    }
+                }
+            }
         }
 
         // In the end, we check if the result mesh is watertight and manifold.
