@@ -173,7 +173,7 @@ namespace VCX::Labs::GeometryProcessing {
         auto UpdateQ {
             [&G, &output](DCEL::Triangle const * f) -> glm::mat4 {
                 glm::mat4 Kp;
-                glm::mat3 vec = {output.Positions[f->VertexIndex(0)], output.Positions[f->VertexIndex(1)], output.Positions[f->VertexIndex(2)]};
+                glm::mat3 vec = { output.Positions[f->VertexIndex(0)], output.Positions[f->VertexIndex(1)], output.Positions[f->VertexIndex(2)] };
                 vec           = glm::transpose(vec);
                 glm::vec3 par(-1.0f, -1.0f, -1.0f);
                 par           = glm::inverse(vec) * par;
@@ -184,11 +184,7 @@ namespace VCX::Labs::GeometryProcessing {
                 }
                 q *= 1.0f / dot;
                 Kp = glm::mat4(
-                    q.x * q.x, q.x * q.y, q.x * q.z, q.x * q.w, 
-                    q.y * q.x, q.y * q.y, q.y * q.z, q.y * q.w, 
-                    q.z * q.x, q.z * q.y, q.z * q.z, q.z * q.w, 
-                    q.w * q.x, q.w * q.y, q.w * q.z, q.w * q.w
-                    );
+                    q.x * q.x, q.x * q.y, q.x * q.z, q.x * q.w, q.y * q.x, q.y * q.y, q.y * q.z, q.y * q.w, q.z * q.x, q.z * q.y, q.z * q.z, q.z * q.w, q.w * q.x, q.w * q.y, q.w * q.z, q.w * q.w);
                 return Kp;
             }
         };
@@ -208,12 +204,24 @@ namespace VCX::Labs::GeometryProcessing {
                glm::vec3 const &      p2,
                glm::mat4 const &      Q) -> ContractionPair {
                 ContractionPair result;
-                result.edge = edge;
+                result.edge  = edge;
                 glm::mat4 Qq = {
-                    Q[0][0],Q[1][0],Q[2][0],0,
-                    Q[0][1],Q[1][1],Q[2][1],0,
-                    Q[0][2],Q[1][2],Q[2][2],0,
-                    Q[0][3],Q[1][3],Q[2][3],1,
+                    Q[0][0],
+                    Q[1][0],
+                    Q[2][0],
+                    0,
+                    Q[0][1],
+                    Q[1][1],
+                    Q[2][1],
+                    0,
+                    Q[0][2],
+                    Q[1][2],
+                    Q[2][2],
+                    0,
+                    Q[0][3],
+                    Q[1][3],
+                    Q[2][3],
+                    1,
                 };
                 if (glm::determinant(Qq) > 0.001f) {
                     glm::vec4 targetPosition = glm::inverse(Qq) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -397,8 +405,8 @@ namespace VCX::Labs::GeometryProcessing {
                 // your code here:
                 float dot   = glm::dot(v1 - vAngle, v2 - vAngle);
                 float cross = glm::length(glm::cross(v1 - vAngle, v2 - vAngle));
-                if (cross < 0.001) cross = 0.001f;
-                return dot / cross;
+                //return dot / cross;
+                return glm::clamp(dot / cross,1000.0f,-1000.0f);
             }
         };
 
@@ -423,7 +431,8 @@ namespace VCX::Labs::GeometryProcessing {
                 w += wi;
                 previous_pos = neighbor_pos;
             }
-
+            if(w < 0.001 && w > 0) w = 0.001;
+            if(w > -0.001 && w < 0) w = -0.001;
             laplacian /= w;
 
             laplacian_values[i] = laplacian;
@@ -435,11 +444,10 @@ namespace VCX::Labs::GeometryProcessing {
         // Define function to compute cotangent value of the angle v1-vAngle-v2
         static constexpr auto GetCotangent {
             [](glm::vec3 vAngle, glm::vec3 v1, glm::vec3 v2) -> float {
-                // your code here:
-                float dot   = glm::dot(glm::normalize(v1 - vAngle), glm::normalize(v2 - vAngle));
+                float dot   = glm::dot(v1 - vAngle, v2 - vAngle);
                 float cross = glm::length(glm::cross(v1 - vAngle, v2 - vAngle));
-                if (cross < 0.001) return 100000000.0f;
                 return dot / cross;
+                //return glm::clamp(dot / cross,1000.0f,-1000.0f);
             }
         };
 
@@ -460,7 +468,7 @@ namespace VCX::Labs::GeometryProcessing {
             std::vector<glm::vec3> laplacian = useUniformWeight ? UniformLaplacian(curr_mesh) : CotangentLaplacian(curr_mesh);
             for (std::size_t i = 0; i < input.Positions.size(); ++i) {
                 curr_mesh.Positions[i] = prev_mesh.Positions[i] + lambda * laplacian[i];
-                curr_mesh.Positions[i] = lambda * prev_mesh.Positions[i] + (1 - lambda) * curr_mesh.Positions[i];
+                //curr_mesh.Positions[i] = lambda * prev_mesh.Positions[i] + (1 - lambda) * curr_mesh.Positions[i];
             }
             // Move curr_mesh to prev_mesh.
             prev_mesh.Swap(curr_mesh);
@@ -472,7 +480,89 @@ namespace VCX::Labs::GeometryProcessing {
     }
 
     /******************* 5. Marching Cubes *****************/
+
+    glm::vec3 linearInterpolation(float w1, float w2, glm::vec3 v1, glm::vec3 v2) {
+        return (w2 * v1 - w1 * v2) / (v2 - v1);
+    }
+
     void MarchingCubes(Engine::SurfaceMesh & output, const std::function<float(const glm::vec3 &)> & sdf, const glm::vec3 & grid_min, const float dx, const int n) {
-        // your code here:
+        std::vector<std::vector<std::vector<std::vector<int>>>> edge_point;
+        edge_point.resize(n + 1);
+        for (int i = 0; i <= n; i++) {
+            edge_point[i].resize(n + 1);
+            for (int j = 0; j <= n; j++) {
+                edge_point[i][j].resize(n + 1);
+                for (int k = 0; k <= n; k++) {
+                    edge_point[i][j][k].resize(3);
+                    for (int l = 0; l < 3; l++)
+                        edge_point[i][j][k][l] = -1;
+                }
+            }
+        }
+        // printf("successfully initialized");
+        for (int x = 0; x < n; x++) {
+            //    printf("i=%d\n",i);
+            for (int y = 0; y < n; y++) {
+                //        printf("j=%d\n",j);
+                for (int z = 0; z < n; z++) {
+                    //            printf("i=%d,j=%d,k=%d\n",i,j,k);
+                    glm::vec3 core_point(x, y, z);
+                    core_point *= dx;
+                    core_point += grid_min;
+                    int state = 0;
+
+                    for (int point_count = 0; point_count < 8; point_count++) {
+                        glm::vec3 position(point_count & 1, (point_count >> 1) & 1, (point_count >> 2));
+                        position *= dx;
+                        position += core_point;
+
+                        if (sdf(position) > 0) {
+                            state |= 1 << point_count;
+                        }
+                    }
+                    //            printf("successfully state calculate\n");
+
+                    int e_state = c_EdgeStateTable[state];
+
+                    constexpr std::array<glm::vec3, 3> unit { glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) };
+
+                    int edge_num = 0;
+
+                    for (int edge_cnt = 0; edge_cnt < 12; edge_cnt++) {
+                        if ((e_state & (1 << edge_cnt)) == 0) continue;
+                        int det_x = 0, det_y = 0, det_z = 0;
+                        edge_num++;
+                        if (edge_cnt == 6 || edge_cnt == 7 || edge_cnt == 9 || edge_cnt == 11) det_x = 1;
+                        if (edge_cnt == 1 || edge_cnt == 3 || edge_cnt == 10 || edge_cnt == 11) det_y = 1;
+                        if (edge_cnt == 2 || edge_cnt == 3 || edge_cnt == 5 || edge_cnt == 7) det_z = 1;
+                        glm::vec3 from_position = core_point
+                            + dx * (edge_cnt & 1) * unit[((edge_cnt >> 2) + 1) % 3]
+                            + dx * ((edge_cnt >> 1) & 1) * unit[((edge_cnt >> 2) + 2) % 3];
+                        glm::vec3 to_position = from_position + unit[edge_cnt >> 2] * dx;
+                        float     to_dis = sdf(to_position), from_dis = sdf(from_position);
+                        if (edge_point[x + det_x][y + det_y][z + det_z][edge_cnt / 4] == -1) {
+                            edge_point[x + det_x][y + det_y][z + det_z][edge_cnt / 4] = output.Positions.size();
+                            output.Positions.push_back((from_position * to_dis - to_position * from_dis) / (to_dis - from_dis));
+                        }
+                    }
+                    //            printf("successfully point calculate\n");
+
+                    for (int l = 0; l < edge_num - 2; l++) {
+                        for (int m = 0; m < 3; m++) {
+                            int c = c_EdgeOrdsTable[state][3 * l + 2 - m];
+                            if (c == -1) break;
+                            int det_x = 0, det_y = 0, det_z = 0;
+                            if (c == 6 || c == 7 || c == 9 || c == 11) det_x = 1;
+                            if (c == 1 || c == 3 || c == 10 || c == 11) det_y = 1;
+                            if (c == 2 || c == 3 || c == 5 || c == 7) det_z = 1;
+                            output.Indices.push_back(edge_point[x + det_x][y + det_y][z + det_z][c / 4]);
+                        }
+                    }
+                    //            printf("successfully edge added\n");
+                }
+            }
+        }
+        printf("%d\n", output.Positions.size());
+        printf("%d\n", output.Indices.size());
     }
 } // namespace VCX::Labs::GeometryProcessing
