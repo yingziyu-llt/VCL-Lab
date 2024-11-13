@@ -184,7 +184,10 @@ namespace VCX::Labs::GeometryProcessing {
                 }
                 q *= 1.0f / dot;
                 Kp = glm::mat4(
-                    q.x * q.x, q.x * q.y, q.x * q.z, q.x * q.w, q.y * q.x, q.y * q.y, q.y * q.z, q.y * q.w, q.z * q.x, q.z * q.y, q.z * q.z, q.z * q.w, q.w * q.x, q.w * q.y, q.w * q.z, q.w * q.w);
+                    q.x * q.x, q.x * q.y, q.x * q.z, q.x * q.w, 
+                    q.y * q.x, q.y * q.y, q.y * q.z, q.y * q.w, 
+                    q.z * q.x, q.z * q.y, q.z * q.z, q.z * q.w, 
+                    q.w * q.x, q.w * q.y, q.w * q.z, q.w * q.w);
                 return Kp;
             }
         };
@@ -206,22 +209,10 @@ namespace VCX::Labs::GeometryProcessing {
                 ContractionPair result;
                 result.edge  = edge;
                 glm::mat4 Qq = {
-                    Q[0][0],
-                    Q[1][0],
-                    Q[2][0],
-                    0,
-                    Q[0][1],
-                    Q[1][1],
-                    Q[2][1],
-                    0,
-                    Q[0][2],
-                    Q[1][2],
-                    Q[2][2],
-                    0,
-                    Q[0][3],
-                    Q[1][3],
-                    Q[2][3],
-                    1,
+                    Q[0][0],Q[1][0],Q[2][0],0,
+                    Q[0][1],Q[1][1],Q[2][1],0,
+                    Q[0][2],Q[1][2],Q[2][2],0,
+                    Q[0][3],Q[1][3],Q[2][3],1,
                 };
                 if (glm::determinant(Qq) > 0.001f) {
                     glm::vec4 targetPosition = glm::inverse(Qq) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
