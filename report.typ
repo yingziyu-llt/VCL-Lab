@@ -2,6 +2,16 @@
 
 = 可视计算与交互概论 Lab 1
 
+== Task 1:Loop Mesh Subdivision (bonus=2') 
+
+网格细分算法，使用讲义给的方法，即
+
+双半边上点：$e_p := 3/8(v_0 + v_2) + 1/8(v_1 + v_3)$;单半边上点：$e_p := 1/2(v_0 + v_2)$;原有点：$v := (1 - n u)v + sum^n_(i=1) u v_i $,$n$为度数。
+
+#figure(image("pic/subdivision_dino.png"), caption: [Loop Mesh Subdivision, Dinosaur,iter=3])
+
+#figure(image("pic/subdivision_block.png"), caption: [Loop Mesh Subdivision, Block,iter=3])
+
 == Task 2: Spring-Mass Mesh Parameterization(1.5')
 
 网格的参数化。
@@ -16,7 +26,7 @@ $ t_i = sum_j 1/2 D_(i,j) t_j $
 记$lambda_(i,j) = D_(i,j) / (sum_j D_(i,j))$,方程化简为
 $ t_i - sum_j lambda_(i,j) t_j = 0 $
 
-即$ A vec(t_1,t_2,dots.v,t_n) = 0 $
+即$ A vec(t_1,t_2,dots.v,t_n) = 0 $build/linux/x86_64/release/lab2_pic/subdivision_dino.png build/linux/x86_64/release/lab2_pic/subdivision_block.png
 
 其中$ A = mat(lambda_(i.j)) $
 
@@ -56,7 +66,17 @@ $ t_i - sum_j lambda_(i,j) t_j = 0 $
 
 == Task 5: Marching Cubes (2') 
 
-枚举每一个block,将其8个点带入sdf计算，如果小于0，那么该点在内部，否则在外部。
+枚举每一个block,将其8个点带入sdf计算，如果大于0,将state对应二进制位设为1.通过state查询每条边上是否有点，查找该边是否已经有点，如果有点就忽略，否则加一个新点，点的位置由两端点按照距离倒数绝对值插值得到。按照c_EdgeOrdsTable的指示连边放入output.这里需要注意的是，直接按照`c_EdgeOrdsTable[state][3k+i]`连接产生的三角形的内外是反的，需要反着插入三个节点，这样渲染才正常。
+
+#figure(image("pic/sphere_15.png"), caption: [球体，分辨率为15])
+#figure(image("pic/sphere_50.png"), caption: [球体，分辨率为50])
+#figure(image("pic/sphere_100.png"), caption: [球体，分辨率为100])
+
+#figure(image("pic/tour_16.png"), caption: [甜甜圈，分辨率为16])
+
+#figure(image("pic/tour_50.png"), caption: [甜甜圈，分辨率为50])
+
+#figure(image("pic/tour_100.png"), caption: [甜甜圈，分辨率为100])
 
 == Code Availability
 

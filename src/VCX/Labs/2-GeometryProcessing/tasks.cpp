@@ -35,6 +35,12 @@ namespace VCX::Labs::GeometryProcessing {
                 auto v         = G.Vertex(i);
                 auto neighbors = v->Neighbors();
                 // your code here:
+                int n = neighbors.size();
+                float u = (n == 3 ? 3.0 / 16.0 : 3.0 / 8.0 / n);
+                curr_mesh.Positions.push_back((1 - n * u) * prev_mesh.Positions[i] );
+                for (auto v : neighbors) {
+                    curr_mesh.Positions[i] += u * prev_mesh.Positions[v];
+                }
             }
             // We create an array to store indices of the newly generated vertices.
             // Note: newIndices[i][j] is the index of vertex generated on the "opposite edge" of j-th
@@ -49,6 +55,7 @@ namespace VCX::Labs::GeometryProcessing {
                 if (! eTwin) {
                     // When there is no twin halfedge (so, e is a boundary edge):
                     // your code here: generate the new vertex and add it into curr_mesh.Positions.
+                    curr_mesh.Positions.push_back((prev_mesh.Positions[e->From()] + prev_mesh.Positions[e->To()]) / 2.0f);
                 } else {
                     // When the twin halfedge exists, we should also record:
                     //     newIndices[face index][vertex index] = index of the newly generated vertex
@@ -56,6 +63,7 @@ namespace VCX::Labs::GeometryProcessing {
                     //     we have to record twice.
                     newIndices[G.IndexOf(eTwin->Face())][e->TwinEdge()->EdgeLabel()] = curr_mesh.Positions.size();
                     // your code here: generate the new vertex and add it into curr_mesh.Positions.
+                    curr_mesh.Positions.push_back(3.0f / 8.0f * (prev_mesh.Positions[e->From()] + prev_mesh.Positions[e->To()] ) + 1 / 8.0f * (prev_mesh.Positions[eTwin->OppositeVertex()] + prev_mesh.Positions[eTwin->TwinEdge()->OppositeVertex()]) );
                 }
             }
 
@@ -75,6 +83,10 @@ namespace VCX::Labs::GeometryProcessing {
                 // toInsert[i][j] stores the j-th vertex index of the i-th sub-face.
                 std::uint32_t toInsert[4][3] = {
                     // your code here:
+                    {v0,m2,m1},
+                    {m2,v1,m0},
+                    {m0,m1,m2},
+                    {m1,m0,v2}
                 };
                 // Do insertion.
                 curr_mesh.Indices.insert(
