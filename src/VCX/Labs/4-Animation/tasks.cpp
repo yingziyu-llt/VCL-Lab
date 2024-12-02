@@ -75,35 +75,108 @@ namespace VCX::Labs::Animation {
         ForwardKinematics(ik, 0);
     }
 
-    IKSystem::Vec3ArrPtr IKSystem::BuildCustomTargetPosition() {
+    /*IKSystem::Vec3ArrPtr IKSystem::BuildCustomTargetPosition() {
         // get function from https://www.wolframalpha.com/input/?i=Albert+Einstein+curve
         int nums = 5000;
         using Vec3Arr = std::vector<glm::vec3>;
         std::shared_ptr<Vec3Arr> custom(new Vec3Arr(0));
         int index = 0;
         auto calculate_point = [](float t) {
-            float x_val = 1.5e-3f * custom_x(92 * glm::pi<float>() * t);
-            float y_val = 1.5e-3f * custom_y(92 * glm::pi<float>() * t);
+            float x_val = 1.5e-3f * custom_x(t);
+            float y_val = 1.5e-3f * custom_y(t);
             return glm::vec3(1.6f - x_val, 0.0f, y_val - 0.2f);
         };
         for (int i = 0; i < nums; i++) {
             float delta =  glm::pi<float>() * 92.0f / nums;
             float previous_theta = 92 * glm::pi<float>() * (i - 1) / nums;
-            auto end_point = calculate_point(previous_theta + delta);
-            /*while(glm::length(end_point - calculate_point(previous_theta)) > 0.2f && delta > 1e-4f) {
+            auto end_point = calculate_point(92 * glm::pi<float>() * i / nums);
+            if (std::abs(1.6 - end_point.x) < 1e-3 || std::abs(end_point.z + 0.2) < 1e-3) continue;
+            if(glm::length(end_point - calculate_point(previous_theta)) < 0.1f)
+            {
+                (*custom).push_back(end_point);
+                index++;
+                continue;
+            }
+            while(glm::length(end_point - calculate_point(previous_theta)) > 0.1f && delta > 1e-4f) {
                 delta /= 2.0f;
                 end_point = calculate_point(previous_theta + delta);
-            }*/
-            float curr_theta = previous_theta;
+            }
+            float curr_theta = previous_theta + delta;
             while(92 * glm::pi<float>() * i / nums - curr_theta > 1e-4f) {
-                printf("%d %f\n",i,previous_theta);
-                (*custom).push_back(calculate_point(previous_theta));
+                (*custom).push_back(calculate_point(curr_theta));
                 index++;
                 curr_theta += delta;
             }  
         }
         return custom;
-    }
+    }*/
+
+   IKSystem::Vec3ArrPtr IKSystem::BuildCustomTargetPosition() {
+        int nums = 50;
+        using Vec3Arr = std::vector<glm::vec3>;
+        
+        glm::vec3 shift = glm::vec3(1, 0, 0);
+        std::shared_ptr<Vec3Arr> custom(new Vec3Arr(0));
+        for (int i = 0;i < nums;i++) {
+            float x = 0;
+            float y = -1.0f / nums * i + 0.5f;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        for (int i = 0;i < nums;i++) {
+            float x = -0.4 / nums * i;
+            float y = -0.5;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        shift  = glm::vec3(0, 0, 0);
+        for (int i = 0;i < nums;i++) {
+            float x = 0;
+            float y = -1.0f / nums * i + 0.5f;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        for (int i = 0;i < nums;i++) {
+            float x = -0.4 / nums * i;
+            float y = -0.5;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        shift = glm::vec3(-1, 0, 0);
+        for (int i = 0;i < nums;i++) {
+            float x = -1.0 / nums * i + 0.5;
+            float y = 0.5;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        for (int i = 0;i < nums;i++) {
+            float x = 0;
+            float y = -1.0f / nums * i + 0.5f;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        /*shift  = glm::vec3(0, 0, 0);
+        for (int i = 0; i < nums; i++) {
+            float t = 2.0f * glm::pi<float>() * i / (nums - 1); // 参数 t
+            float x = 0.5 * std::pow(std::sin(t), 3);
+            float y = 0.5 * (13 * std::cos(t) - 5 * std::cos(2 * t) - 2 * std::cos(3 * t) - std::cos(4 * t)) / 16.0f;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        shift = glm::vec3(-0.8, 0, 0);
+        nums = 100;
+        for (int i = 0; i < nums; i++) {
+            float x = 0;
+            float y = 1.0f / nums * i - 0.5f;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        for (int i = 0; i < nums; i++) {
+            float x = -0.4 / nums * i;
+            float y = 0.5;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }
+        for (int i = 0; i < nums; i++) {
+            float x = -0.3 / nums * i;
+            float y = 0;
+            (*custom).push_back(glm::vec3(x,0,y) + shift); // 存储点
+        }*/
+
+        return custom;
+
+   }
 
     static Eigen::VectorXf glm2eigen(std::vector<glm::vec3> const & glm_v) {
         Eigen::VectorXf v = Eigen::Map<Eigen::VectorXf const, Eigen::Aligned>(reinterpret_cast<float const *>(glm_v.data()), static_cast<int>(glm_v.size() * 3));
