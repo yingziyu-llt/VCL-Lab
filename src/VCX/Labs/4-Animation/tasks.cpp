@@ -17,6 +17,8 @@ namespace VCX::Labs::Animation {
         
         for (int i = StartIndex; i < ik.JointLocalOffset.size(); i++) {
             // your code here: forward kinematics, update JointGlobalPosition and JointGlobalRotation
+            ik.JointGlobalRotation[i] = ik.JointGlobalRotation[i - 1] * ik.JointLocalRotation[i];
+            ik.JointGlobalPosition[i] = ik.JointGlobalPosition[i - 1] + ik.JointGlobalRotation[i - 1] * ik.JointLocalOffset[i];
         }
     }
 
@@ -24,7 +26,18 @@ namespace VCX::Labs::Animation {
         ForwardKinematics(ik, 0);
         // These functions will be useful: glm::normalize, glm::rotation, glm::quat * glm::quat
         for (int CCDIKIteration = 0; CCDIKIteration < maxCCDIKIteration && glm::l2Norm(ik.EndEffectorPosition() - EndPosition) > eps; CCDIKIteration++) {
-            // your code here: ccd ik
+            for (int i = ik.NumJoints() - 2; i >= 0; i--) {
+                glm::vec3 to_target = glm::normalize(EndPosition - ik.JointGlobalPosition[i]);
+                glm::vec3 to_end = glm::normalize(ik.EndEffectorPosition() - ik.JointGlobalPosition[i]);
+                glm::quat rot = glm::rotation(to_end, to_target);
+                ik.JointGlobalRotation[i] = rot * ik.JointGlobalRotation[i];
+                if (i == 0) {
+                    ik.JointLocalRotation[i] = ik.JointGlobalRotation[i];
+                } else {
+                    ik.JointLocalRotation[i] = glm::inverse(ik.JointGlobalRotation[i - 1]) * ik.JointGlobalRotation[i];
+                }
+                ForwardKinematics(ik, i);
+            }
         }
     }
 
@@ -39,14 +52,14 @@ namespace VCX::Labs::Animation {
             backward_positions[nJoints - 1] = EndPosition;
 
             for (int i = nJoints - 2; i >= 0; i--) {
-                // your code here
+                backward_positions[i] = backward_positions[i + 1] + glm::normalize(ik.JointGlobalPosition[i] - backward_positions[i + 1]) * glm::length(ik.JointLocalOffset[i + 1]);
             }
 
             // forward update
             glm::vec3 now_position = ik.JointGlobalPosition[0];
             forward_positions[0] = ik.JointGlobalPosition[0];
-            for (int i = 0; i < nJoints - 1; i++) {
-                // your code here
+            for (int i = 0; i < nJoints; i++) {
+                forward_positions[i + 1] = forward_positions[i] + (backward_positions[i + 1] - forward_positions[i]) * glm::length(ik.JointLocalOffset[i + 1]) / glm::length(backward_positions[i + 1] - forward_positions[i]);
             }
             ik.JointGlobalPosition = forward_positions; // copy forward positions to joint_positions
         }
@@ -66,15 +79,29 @@ namespace VCX::Labs::Animation {
         // get function from https://www.wolframalpha.com/input/?i=Albert+Einstein+curve
         int nums = 5000;
         using Vec3Arr = std::vector<glm::vec3>;
-        std::shared_ptr<Vec3Arr> custom(new Vec3Arr(nums));
+        std::shared_ptr<Vec3Arr> custom(new Vec3Arr(0));
         int index = 0;
+        auto calculate_point = [](float t) {
+            float x_val = 1.5e-3f * custom_x(92 * glm::pi<float>() * t);
+            float y_val = 1.5e-3f * custom_y(92 * glm::pi<float>() * t);
+            return glm::vec3(1.6f - x_val, 0.0f, y_val - 0.2f);
+        };
         for (int i = 0; i < nums; i++) {
-            float x_val = 1.5e-3f * custom_x(92 * glm::pi<float>() * i / nums);
-            float y_val = 1.5e-3f * custom_y(92 * glm::pi<float>() * i / nums);
-            if (std::abs(x_val) < 1e-3 || std::abs(y_val) < 1e-3) continue;
-            (*custom)[index++] = glm::vec3(1.6f - x_val, 0.0f, y_val - 0.2f);
+            float delta =  glm::pi<float>() * 92.0f / nums;
+            float previous_theta = 92 * glm::pi<float>() * (i - 1) / nums;
+            auto end_point = calculate_point(previous_theta + delta);
+            /*while(glm::length(end_point - calculate_point(previous_theta)) > 0.2f && delta > 1e-4f) {
+                delta /= 2.0f;
+                end_point = calculate_point(previous_theta + delta);
+            }*/
+            float curr_theta = previous_theta;
+            while(92 * glm::pi<float>() * i / nums - curr_theta > 1e-4f) {
+                printf("%d %f\n",i,previous_theta);
+                (*custom).push_back(calculate_point(previous_theta));
+                index++;
+                curr_theta += delta;
+            }  
         }
-        custom->resize(index);
         return custom;
     }
 
