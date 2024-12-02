@@ -34,7 +34,7 @@ namespace VCX::Labs::Rendering {
 
         std::size_t                             _sceneIdx { 0 };
         bool                                    _enableZoom { true };
-        bool                                    _enableShadow { true };
+        bool                                    _enableShadow { false };
         int                                     _maximumDepth { 3 };
         int                                     _superSampleRate { 1 };
         std::size_t                             _pixelIndex { 0 };
