@@ -60,6 +60,8 @@ namespace VCX::Labs::Visualization {
         }
     }
     glm::vec4 linear_interpolation(glm::vec4 const & a, glm::vec4 const & b, float const & t) {
+        if (t < 0) return a;
+        if (t > 1) return b;
         return a * (1 - t) + b * t;
     }
 
@@ -92,10 +94,10 @@ namespace VCX::Labs::Visualization {
 
         if(proxy.IsHovering()) {
             if(proxy.IsClicking()){
-                printf("clicking\n");
+                //printf("clicking\n");
                 float pos = (proxy.MousePos().x - left_margin) / (right_margin - left_margin);
-                printf("pos: %f", pos * 6);
-                printf("diff: %f\n",fabs(pos * 6 - (int)(pos * 6)));
+                //printf("pos: %f", pos * 6);
+                //printf("diff: %f\n",fabs(pos * 6 - (int)(pos * 6)));
                 if(fabs(pos * 6 - (int)(pos * 6 + 0.5)) < 0.2) {
                     states.current_var = (int)(pos * 6 + 0.3);
                     states.ranges[states.current_var].first = states.min_values[states.current_var];
@@ -104,8 +106,8 @@ namespace VCX::Labs::Visualization {
             }
             if(proxy.IsDragging()){
                 float pos = (proxy.MousePos().x - left_margin) / (right_margin - left_margin);
-                printf("dragging\n");
-                printf("range: %f %f\n", proxy.DraggingStartPoint().y, proxy.MousePos().y);
+                //printf("dragging\n");
+                //printf("range: %f %f\n", proxy.DraggingStartPoint().y, proxy.MousePos().y);
                 if(fabs(pos * 6 - (int)(pos * 6 + 0.5)) < 0.4) {
                 states.current_var = (int)(pos * 6 + 0.5);
                 float min_y = std::min(proxy.DraggingStartPoint().y, proxy.MousePos().y);
@@ -167,6 +169,12 @@ namespace VCX::Labs::Visualization {
         // your code here
         int n = output.GetSizeX();
         int m = output.GetSizeY();
+        float v_max = 0;
+        for (int x = 0;x < n;x++) {
+            for (int y = 0;y < m;y++) {
+                v_max = std::max(v_max,glm::length(field.At(x,y)));
+            }
+        }
         for (int x0 = 0;x0 < n;x0++) {
             for (int y0 = 0;y0 < m;y0++) {
                 float x = x0,y = y0;
@@ -177,7 +185,7 @@ namespace VCX::Labs::Visualization {
                 for (int i = 0; i < step;i++) {
                     dx = field.At(x,y).x;
                     dy = field.At(x,y).y;
-                    float dt;
+                    float dt = 1;
                     if (dx > 0) 
                         dt = (std::floor(x) + 1.0f - x) / dx;
                     else 
@@ -192,11 +200,12 @@ namespace VCX::Labs::Visualization {
                     val += weight * noise.At(x,y);
                     total_weight += weight;
                 }
+                
                 x = x0,y = y0;
                 for (int i = 0;i < step;i++){
                     dx = field.At(x,y).x;
                     dy = field.At(x,y).y;
-                    float dt;
+                    float dt = 1;
                     if (dx > 0) 
                         dt = (std::floor(x) + 1.0f - x) / dx;
                     else 
@@ -213,8 +222,12 @@ namespace VCX::Labs::Visualization {
                 }
                 val += kernel(0,0) * noise.At(x0,y0);
                 total_weight += kernel(0,0);
-                glm::vec3 color = val / total_weight;
+                float noi = val.r / total_weight;
+                glm::vec4 color = linear_interpolation(glm::vec4(0,0,1,1),glm::vec4(1,0,0,1),glm::length(field.At(x0,y0)) / v_max);
+                color = color * noi;
+                color += glm::vec4(1) * 0.1f;
                 output.At(x0,y0) = color;
+                
             }
         }
     }
