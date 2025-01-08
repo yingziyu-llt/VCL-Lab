@@ -6,6 +6,8 @@
 #include <numeric>
 #include <spdlog/spdlog.h>
 #include <vector>
+#include <algorithm>
+#include <stack>
 
 namespace VCX::Labs::Rendering {
     
@@ -31,7 +33,7 @@ namespace VCX::Labs::Rendering {
         glm::vec4         IntersectMetaSpec;
     };
 
-    class Triangle {
+    class Face {
     public:
         glm::vec3 Vertices[3];
         int       Index    = -1;
@@ -44,48 +46,43 @@ namespace VCX::Labs::Rendering {
         glm::vec3 Min_, Max_;
         AABB();
         AABB(const glm::vec3 & min, const glm::vec3 & max);
-        AABB(const Triangle & triangle);
+        AABB(const Face & triangle);
         AABB      Merge(const AABB & other) const;
         bool      Intersect(const Ray & ray, float & tmin, float & tmax) const;
         glm::vec3 Center() const;
         bool      Contains(const glm::vec3 & point) const;
-        bool      Contains(const Triangle & triangle) const;
     };
 
-    class OctTreeNode {
+    class BVHNode {
     public:
-        std::vector<Triangle> Triangles_;
-        AABB                  BoundingBox_;
-        OctTreeNode *         Children_[8];
-        int                   Depth_;
-        OctTreeNode(int depth);
-        OctTreeNode(const std::vector<Triangle> & triangles, int depth);
+        AABB BoundingBox_;
+        std::shared_ptr<BVHNode> Left_ = nullptr;
+        std::shared_ptr<BVHNode> Right_ = nullptr;
+        std::vector<Face> Faces_;
+        BVHNode(int depth);
+        BVHNode() : BoundingBox_() {}
+        BVHNode(const std::vector<Face> & faces, int depth);
         bool is_leaf() const;
     };
 
-    class OctTree {
+    class BVHTree{
     public:
-        OctTreeNode * Root_;
-        OctTree();
-        OctTree(const std::vector<Triangle> & triangles, AABB bounding_box, int depth);
-        ~OctTree();
+        std::shared_ptr<BVHNode> Root_;
+        BVHTree();
+        std::shared_ptr<BVHNode> BuildBVH(std::vector<Face> & faces, std::shared_ptr<BVHNode> node, int depth);
+        ~BVHTree();
     };
 
-    class OctTreeRayIntersector {
+    class BVGRayIntersector {
     public:
-        Engine::Scene const * InternalScene = nullptr;
-        OctTree *             SceneOctTree  = nullptr;
-        OctTreeRayIntersector();
-        ~OctTreeRayIntersector();
-        void   InitScene(Engine::Scene const * scene);
+        BVHTree *SceneBVH_;
+        const Engine::Scene *InternalScene;
+        BVGRayIntersector() {};
+        void InitScene(const Engine::Scene * scene);
+        ~BVGRayIntersector();
         RayHit IntersectRay(const Ray & ray) const;
-
-    private:
-        void IntersectOctTree(OctTreeNode * node, const Ray & ray, float & tmin, Intersection & its, int & modelIdx, int & meshIdx, float & u, float & v) const;
     };
-
-    using RayIntersector = OctTreeRayIntersector;
-
+    using RayIntersector = BVGRayIntersector;
     glm::vec3 RayTrace(const RayIntersector & intersector, Ray ray, int maxDepth, bool enableShadow);
 
 } // namespace VCX::Labs::Rendering

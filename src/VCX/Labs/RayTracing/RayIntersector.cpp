@@ -16,12 +16,14 @@ namespace VCX::Labs::Rendering {
         return true;
     }
 
-    glm::vec4 GetTexture(Engine::Texture2D<Engine::Formats::RGBA8> const &texture, glm::vec2 const &uvCoord) {
+    
+
+    glm::vec4 GetTexture(Engine::Texture2D<Engine::Formats::RGBA8> const & texture, glm::vec2 const & uvCoord) {
         if (texture.GetSizeX() == 1 || texture.GetSizeY() == 1) return texture.At(0, 0);
-        
+
         glm::vec2 uv = glm::fract(uvCoord);
-        uv.x = uv.x * texture.GetSizeX() - 0.5f;
-        uv.y = uv.y * texture.GetSizeY() - 0.5f;
+        uv.x         = uv.x * texture.GetSizeX() - 0.5f;
+        uv.y         = uv.y * texture.GetSizeY() - 0.5f;
 
         std::size_t xmin = std::size_t(glm::floor(uv.x) + texture.GetSizeX()) % texture.GetSizeX();
         std::size_t ymin = std::size_t(glm::floor(uv.y) + texture.GetSizeY()) % texture.GetSizeY();
@@ -34,58 +36,68 @@ namespace VCX::Labs::Rendering {
         return glm::mix(
             glm::mix(texture.At(xmin, ymin), texture.At(xmin, ymax), yfrac),
             glm::mix(texture.At(xmax, ymin), texture.At(xmax, ymax), yfrac),
-            xfrac
-        );
+            xfrac);
     }
 
-    glm::vec4 GetAlbedo(Engine::Material const &material, glm::vec2 const &uvCoord) {
-        glm::vec4 albedo = GetTexture(material.Albedo, uvCoord);
+    glm::vec4 GetAlbedo(Engine::Material const & material, glm::vec2 const & uvCoord) {
+        glm::vec4 albedo       = GetTexture(material.Albedo, uvCoord);
         glm::vec3 diffuseColor = albedo;
         return glm::vec4(glm::pow(diffuseColor, glm::vec3(2.2f)), albedo.w);
     }
 
     // Triangle Methods
-    glm::vec3 Triangle::Center() const {
+    glm::vec3 Face::Center() const {
         return (Vertices[0] + Vertices[1] + Vertices[2]) / 3.0f;
     }
-
     // AABB Methods
-    AABB::AABB() : Min_(FLT_MAX), Max_(-FLT_MAX) {}
+    AABB::AABB():
+        Min_(FLT_MAX), Max_(-FLT_MAX) {}
 
-    AABB::AABB(const glm::vec3 &min, const glm::vec3 &max) : Min_(min), Max_(max) {}
+    AABB::AABB(const glm::vec3 & min, const glm::vec3 & max):
+        Min_(min), Max_(max) {}
 
-    AABB AABB::Merge(const AABB &other) const {
-        return AABB(glm::min(Min_, other.Min_), glm::max(Max_, other.Max_));
+    AABB AABB::Merge(const AABB & other) const {
+        AABB result;
+        for (int i = 0; i < 3; ++i) {
+            result.Min_[i] = std::min(Min_[i], other.Min_[i]);
+            result.Max_[i] = std::max(Max_[i], other.Max_[i]);
+        }
+        return result;
     }
 
-    AABB::AABB(const Triangle &triangle) : Min_(FLT_MAX), Max_(-FLT_MAX) {
-        for (const auto &vertex : triangle.Vertices) {
-            Min_ = glm::min(Min_, vertex - glm::vec3(EPS3));
-            Max_ = glm::max(Max_, vertex + glm::vec3(EPS3));
+    AABB::AABB(const Face & faces):
+        Min_(FLT_MAX), Max_(-FLT_MAX) {
+        //printf("Building AABB!\n");
+        //printf("%f %f %f\n", faces.Vertices[0].x, faces.Vertices[0].y, faces.Vertices[0].z);
+        //printf("%f %f %f\n", faces.Vertices[1].x, faces.Vertices[1].y, faces.Vertices[1].z);
+        //printf("%f %f %f\n", faces.Vertices[2].x, faces.Vertices[2].y, faces.Vertices[2].z);
+        for (const auto & vertex : faces.Vertices) {
+            for (int i = 0; i < 3; ++i) {
+                Min_[i] = std::min(Min_[i], vertex[i] - EPS3);
+                Max_[i] = std::max(Max_[i], vertex[i] + EPS3);
+            }
         }
     }
 
-    bool AABB::Intersect(const Ray &ray, float &tmin, float &tmax) const {
+    bool AABB::Intersect(const Ray & ray, float & tmin, float & tmax) const {
         tmin = 0.0f;
         tmax = std::numeric_limits<float>::max();
 
         for (int i = 0; i < 3; ++i) {
-            if (fabs(ray.Direction[i]) < EPS2) {
-                if (ray.Origin[i] < Min_[i] || ray.Origin[i] > Max_[i]) {
-                    return false;
-                }
-            } else {
-                float invD = 1.0f / ray.Direction[i];
-                float t0 = (Min_[i] - ray.Origin[i]) * invD;
-                float t1 = (Max_[i] - ray.Origin[i]) * invD;
-
-                if (invD < 0.0f) std::swap(t0, t1);
-
-                tmin = std::max(t0, tmin);
-                tmax = std::min(t1, tmax);
-
-                if (tmax <= tmin) return false;
+            if(fabs(ray.Direction[i]) < EPS1) {
+                if (ray.Origin[i] < Min_[i] || ray.Origin[i] > Max_[i]) return false;
+                else continue;
             }
+            float invD = 1.0f / ray.Direction[i];
+            float t0   = (Min_[i] - ray.Origin[i]) * invD;
+            float t1   = (Max_[i] - ray.Origin[i]) * invD;
+
+            if (invD < 0.0f) std::swap(t0, t1);
+
+            tmin = std::max(t0, tmin);
+            tmax = std::min(t1, tmax);
+
+            if (tmax < tmin) return false;
         }
 
         return true;
@@ -95,185 +107,166 @@ namespace VCX::Labs::Rendering {
         return (Min_ + Max_) * 0.5f;
     }
 
-    bool AABB::Contains(const glm::vec3 &point) const {
-        return point.x >= Min_.x && point.x <= Max_.x &&
-               point.y >= Min_.y && point.y <= Max_.y &&
-               point.z >= Min_.z && point.z <= Max_.z;
+    bool AABB::Contains(const glm::vec3 & point) const {
+        return point.x >= Min_.x && point.x <= Max_.x && point.y >= Min_.y && point.y <= Max_.y && point.z >= Min_.z && point.z <= Max_.z;
     }
 
-    bool AABB::Contains(const Triangle &triangle) const {
-        for (const auto &vertex : triangle.Vertices) {
-            if (Contains(vertex)) return true;
+    // BVHNode Methods
+    BVHNode::BVHNode(int depth):
+        BoundingBox_(), Left_(nullptr), Right_(nullptr), Faces_() {}
+
+    BVHNode::BVHNode(const std::vector<Face> & faces, int depth):
+        BoundingBox_(), Left_(nullptr), Right_(nullptr), Faces_(faces) {
+        for (const auto & triangle : Faces_) {
+            BoundingBox_ = BoundingBox_.Merge(AABB(triangle));
         }
-        return false;
     }
 
-    // OctTreeNode Methods
-    OctTreeNode::OctTreeNode(int depth) : Depth_(depth) {
-        std::fill(std::begin(Children_), std::end(Children_), nullptr);
+    bool BVHNode::is_leaf() const {
+        return Left_ == nullptr && Right_ == nullptr;
     }
 
-    bool OctTreeNode::is_leaf() const {
-        return std::all_of(std::begin(Children_), std::end(Children_), [](OctTreeNode *child) { return child == nullptr; });
-    }
-
-    OctTreeNode::OctTreeNode(const std::vector<Triangle> &triangles, int depth) :
-        Triangles_(triangles), Depth_(depth) {
-        std::fill(std::begin(Children_), std::end(Children_), nullptr);
-
-        AABB aabb;
-        for (const auto &triangle : triangles) {
-            aabb = aabb.Merge(AABB(triangle));
+    // BVHTree Methods
+    BVHTree::BVHTree():
+        Root_(nullptr) {}
+    BVHTree::~BVHTree() {}
+    std::shared_ptr<BVHNode> BVHTree::BuildBVH(std::vector<Face> & faces, std::shared_ptr<BVHNode> node, int depth) {
+        if (faces.size() <= 5 || depth > 15) {
+            //printf("Build Leaf! faces: %d, depth: %d\n", faces.size(), depth);
+            node->Faces_ = faces;
+            for (const auto & triangle : faces) {
+                node->BoundingBox_ = node->BoundingBox_.Merge(AABB(triangle));
+            }
+            return node;
         }
-        BoundingBox_ = aabb;
-    }
+        for (const auto & triangle : faces) {
+            node->BoundingBox_ = node->BoundingBox_.Merge(AABB(triangle));
+        }
+        std::vector<float> x, y, z;
+        for (const auto & triangle : faces) {
+            glm::vec3 center = triangle.Center();
+            x.push_back(center.x);
+            y.push_back(center.y);
+            z.push_back(center.z);
+        }
+        auto median = [](std::vector<float> & arr) {
+            std::nth_element(arr.begin(), arr.begin() + arr.size() / 2, arr.end());
+            return arr[arr.size() / 2];
+        };
+        float x_range = *std::max_element(x.begin(), x.end()) - *std::min_element(x.begin(), x.end());
+        float y_range = *std::max_element(y.begin(), y.end()) - *std::min_element(y.begin(), y.end());
+        float z_range = *std::max_element(z.begin(), z.end()) - *std::min_element(z.begin(), z.end());
 
-    // OctTree Methods
-    OctTree::OctTree() = default;
-
-    OctTree::OctTree(const std::vector<Triangle> &triangles, AABB bounding_box, int depth) {
-        if (depth > 10 || triangles.size() <= 10) {
-            Root_ = new OctTreeNode(triangles, depth);
-            return;
+        int axis = 0;
+        if (y_range > x_range && y_range > z_range) {
+            axis = 1;
+        } else if (z_range > x_range && z_range > y_range) {
+            axis = 2;
         }
 
-        Root_ = new OctTreeNode(depth);
-        Root_->BoundingBox_ = bounding_box;
+        float split = median(axis == 0 ? x : axis == 1 ? y
+                                                       : z);
 
-        for (int i = 0; i < 8; ++i) {
-            glm::vec3 min, max;
-            glm::vec3 center = Root_->BoundingBox_.Center();
-
-            min.x = (i & 1) ? center.x : Root_->BoundingBox_.Min_.x;
-            max.x = (i & 1) ? Root_->BoundingBox_.Max_.x : center.x;
-            min.y = (i & 2) ? center.y : Root_->BoundingBox_.Min_.y;
-            max.y = (i & 2) ? Root_->BoundingBox_.Max_.y : center.y;
-            min.z = (i & 4) ? center.z : Root_->BoundingBox_.Min_.z;
-            max.z = (i & 4) ? Root_->BoundingBox_.Max_.z : center.z;
-
-            AABB aabb(min, max);
-            std::vector<Triangle> child_triangles;
-
-            for (const auto &triangle : triangles) {
-                if (aabb.Contains(triangle)) {
-                    child_triangles.push_back(triangle);
+        std::vector<Face> left, right;
+        for (const auto & triangle : faces) {
+            if (AABB(triangle).Center()[axis] < split) {
+                left.push_back(triangle);
+            } else {
+                right.push_back(triangle);
+            }
+        }
+        node->Left_  = BuildBVH(left, std::make_shared<BVHNode>(depth + 1), depth + 1);
+        node->Right_ = BuildBVH(right, std::make_shared<BVHNode>(depth + 1), depth + 1);
+        return node;
+    }
+    void BVGRayIntersector::InitScene(const Engine::Scene * scene) {
+        SceneBVH_ = new BVHTree(), InternalScene = scene;
+        std::vector<Face> faces;
+        for (int i = 0; i < scene->Models.size(); ++i) {
+            auto & model = scene->Models[i];
+            for (int j = 0; j < model.Mesh.Indices.size(); j += 3) {
+                Face face;
+                for (int k = 0; k < 3; ++k) {
+                    face.Vertices[k] = model.Mesh.Positions[model.Mesh.Indices[j + k]];
                 }
-            }
-
-            if (!child_triangles.empty()) {
-                Root_->Children_[i] = (new OctTree(child_triangles, aabb, depth + 1))->Root_;
-            }
-        }
-    }
-
-    OctTree::~OctTree() {
-        delete Root_;
-    }
-
-    // OctTreeRayIntersector Methods
-    OctTreeRayIntersector::OctTreeRayIntersector() = default;
-
-    void OctTreeRayIntersector::InitScene(Engine::Scene const *scene) {
-        InternalScene = scene;
-
-        std::vector<Triangle> triangles;
-        for (const auto &model : scene->Models) {
-            for (size_t j = 0; j < model.Mesh.Indices.size(); j += 3) {
-                std::uint32_t const *face = model.Mesh.Indices.data() + j;
-                Triangle triangle{
-                    {model.Mesh.Positions[face[0]], model.Mesh.Positions[face[1]], model.Mesh.Positions[face[2]]},
-                    j,
-                    &model - &scene->Models[0]
-                };
-                triangles.push_back(triangle);
+                face.Index    = j;
+                face.modelIdx = i;
+                faces.push_back(face);
             }
         }
-
-        AABB sceneAABB;
-        for (const auto &triangle : triangles) {
-            sceneAABB = sceneAABB.Merge(AABB(triangle));
-        }
-
-        SceneOctTree = new OctTree(triangles, sceneAABB, 0);
+        SceneBVH_->Root_ = SceneBVH_->BuildBVH(faces, std::make_shared<BVHNode>(), 0);
     }
 
-    OctTreeRayIntersector::~OctTreeRayIntersector() {
-        delete SceneOctTree;
+    BVGRayIntersector::~BVGRayIntersector() {
+        delete SceneBVH_;
     }
 
-    RayHit OctTreeRayIntersector::IntersectRay(Ray const &ray) const {
+    RayHit BVGRayIntersector::IntersectRay(const Ray & ray) const {
         RayHit result;
-        if (!InternalScene || !SceneOctTree) {
-            spdlog::warn("Uninitialized intersector.");
-            result.IntersectState = false;
-            return result;
-        }
 
-        float tmin = 1e7f;
+        std::stack<std::shared_ptr<BVHNode>> stack;
+        stack.push(SceneBVH_->Root_);
+        float        tmin     = 1e7, umin, vmin;
+        int          maxmodel = InternalScene->Models.size();
+        int          modelIdx = -1;
+        int          meshIdx  = -1;
         Intersection its;
-        int modelIdx = -1, meshIdx = -1;
-        float u = 1.0f, v = 1.0f;
-        IntersectOctTree(SceneOctTree->Root_, ray, tmin, its, modelIdx, meshIdx, u, v);
 
-        if (tmin == 1e7f) {
+        while (! stack.empty()) {
+            auto node = stack.top();
+            stack.pop();
+            float t1 = tmin, t2 = 0;
+            //printf("Intersecting Node!\n");
+            if (! node->BoundingBox_.Intersect(ray, t1, t2)) {
+                //printf("No Intersection!\n");
+                //printf("t1: %f, t2: %f\n", t1, t2);
+                //printf("min:(%f,%f,%f) max:(%f,%f,%f)", node->BoundingBox_.Min_.x, node->BoundingBox_.Min_.y, node->BoundingBox_.Min_.z, node->BoundingBox_.Max_.x, node->BoundingBox_.Max_.y, node->BoundingBox_.Max_.z);
+                continue;
+            }
+            if (node->is_leaf()) {
+                for (const auto & triangle : node->Faces_) {
+                    Intersection output;
+                    if (IntersectTriangle(output, ray, triangle.Vertices[0], triangle.Vertices[1], triangle.Vertices[2])) {
+                        if (output.t < tmin) {
+                            tmin     = std::min(tmin, output.t);
+                            umin     = output.u;
+                            vmin     = output.v;
+                            modelIdx = triangle.modelIdx;
+                            meshIdx  = triangle.Index;
+                        }
+                    }
+                }
+            } else {
+                stack.push(node->Left_);
+                stack.push(node->Right_);
+            }
+        }
+        if (tmin == 1e7) {
             result.IntersectState = false;
             return result;
         }
-
-        const auto &model = InternalScene->Models[modelIdx];
-        const auto &normals = model.Mesh.IsNormalAvailable() ? model.Mesh.Normals : model.Mesh.ComputeNormals();
-        const auto &texcoords = model.Mesh.IsTexCoordAvailable() ? model.Mesh.TexCoords : model.Mesh.GetEmptyTexCoords();
-
-        std::uint32_t const *face = model.Mesh.Indices.data() + meshIdx;
-        const glm::vec3 &p1 = model.Mesh.Positions[face[0]];
-        const glm::vec3 &p2 = model.Mesh.Positions[face[1]];
-        const glm::vec3 &p3 = model.Mesh.Positions[face[2]];
-        const glm::vec3 &n1 = normals[face[0]];
-        const glm::vec3 &n2 = normals[face[1]];
-        const glm::vec3 &n3 = normals[face[2]];
-        const glm::vec2 &uv1 = texcoords[face[0]];
-        const glm::vec2 &uv2 = texcoords[face[1]];
-        const glm::vec2 &uv3 = texcoords[face[2]];
-
-        result.IntersectState = true;
-        const auto &material = InternalScene->Materials[model.MaterialIndex];
-        result.IntersectMode = material.Blend;
-        result.IntersectPosition = (1.0f - u - v) * p1 + u * p2 + v * p3;
-        result.IntersectNormal = (1.0f - u - v) * n1 + u * n2 + v * n3;
-
-        glm::vec2 uvCoord = (1.0f - u - v) * uv1 + u * uv2 + v * uv3;
-        result.IntersectAlbedo = GetAlbedo(material, uvCoord);
-        result.IntersectMetaSpec = GetTexture(material.MetaSpec, uvCoord);
+        auto const &          model     = InternalScene->Models[modelIdx];
+        auto const &          normals   = model.Mesh.IsNormalAvailable() ? model.Mesh.Normals : model.Mesh.ComputeNormals();
+        auto const &          texcoords = model.Mesh.IsTexCoordAvailable() ? model.Mesh.TexCoords : model.Mesh.GetEmptyTexCoords();
+        std::uint32_t const * face      = model.Mesh.Indices.data() + meshIdx;
+        glm::vec3 const &     p1        = model.Mesh.Positions[face[0]];
+        glm::vec3 const &     p2        = model.Mesh.Positions[face[1]];
+        glm::vec3 const &     p3        = model.Mesh.Positions[face[2]];
+        glm::vec3 const &     n1        = normals[face[0]];
+        glm::vec3 const &     n2        = normals[face[1]];
+        glm::vec3 const &     n3        = normals[face[2]];
+        glm::vec2 const &     uv1       = texcoords[face[0]];
+        glm::vec2 const &     uv2       = texcoords[face[1]];
+        glm::vec2 const &     uv3       = texcoords[face[2]];
+        result.IntersectState           = true;
+        auto const & material           = InternalScene->Materials[model.MaterialIndex];
+        result.IntersectMode            = material.Blend;
+        result.IntersectPosition        = (1.0f - umin - vmin) * p1 + umin * p2 + vmin * p3;
+        result.IntersectNormal          = (1.0f - umin - vmin) * n1 + umin * n2 + vmin * n3;
+        glm::vec2 uvCoord               = (1.0f - umin - vmin) * uv1 + umin * uv2 + vmin * uv3;
+        result.IntersectAlbedo          = GetAlbedo(material, uvCoord);
+        result.IntersectMetaSpec        = GetTexture(material.MetaSpec, uvCoord);
 
         return result;
     }
-
-    void OctTreeRayIntersector::IntersectOctTree(
-        OctTreeNode *node, const Ray &ray, float &tmin,
-        Intersection &its, int &modelIdx, int &meshIdx, float &u, float &v) const {
-        if (!node) return;
-
-        float t0, t1;
-        if (!node->BoundingBox_.Intersect(ray, t0, t1)) return;
-
-        if (node->is_leaf()) {
-            for (const auto &triangle : node->Triangles_) {
-                if (IntersectTriangle(its, ray, triangle.Vertices[0], triangle.Vertices[1], triangle.Vertices[2])) {
-                    if (its.t < tmin && its.t > EPS1) {
-                        tmin = its.t;
-                        modelIdx = triangle.modelIdx;
-                        meshIdx = triangle.Index;
-                        u = its.u;
-                        v = its.v;
-                    }
-                }
-            }
-            return;
-        }
-
-        for (int i = 0; i < 8; ++i) {
-            IntersectOctTree(node->Children_[i], ray, tmin, its, modelIdx, meshIdx, u, v);
-        }
-    }
-
 } // namespace VCX::Labs::Rendering
