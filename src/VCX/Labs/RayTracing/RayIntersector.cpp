@@ -84,10 +84,6 @@ namespace VCX::Labs::Rendering {
         tmax = std::numeric_limits<float>::max();
 
         for (int i = 0; i < 3; ++i) {
-            if(fabs(ray.Direction[i]) < EPS1) {
-                if (ray.Origin[i] < Min_[i] || ray.Origin[i] > Max_[i]) return false;
-                else continue;
-            }
             float invD = 1.0f / ray.Direction[i];
             float t0   = (Min_[i] - ray.Origin[i]) * invD;
             float t1   = (Max_[i] - ray.Origin[i]) * invD;
