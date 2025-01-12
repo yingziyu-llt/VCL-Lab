@@ -46,6 +46,9 @@ namespace VCX::Labs::Rendering {
         Common::ImageRGB                        _buffer;
         bool                                    _resizable { true };
         std::vector<std::vector<glm::vec3>> sum;
+        int curr_spp;
+        bool _enableCosineWeighted { false };
+        bool _enableLightWeighted { false };
 
         std::thread _task;
 

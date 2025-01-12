@@ -47,14 +47,17 @@ namespace VCX::Labs::Rendering {
                 if (_task.joinable()) _task.join();
             }
         } else if (ImGui::Button("Start Rendering")) _stopFlag = false;
-        ImGui::ProgressBar(float(_pixelIndex) / (_buffer.GetSizeX() * _buffer.GetSizeY()));
+        ImGui::ProgressBar(float(_buffer.GetSizeX() * _buffer.GetSizeY() * curr_spp + _pixelIndex) / (_buffer.GetSizeX() * _buffer.GetSizeY() * _max_SPP));
         Common::ImGuiHelper::SaveImage(_texture, GetBufferSize(), true);
         ImGui::Spacing();
 
         if (ImGui::CollapsingHeader("Appearance", ImGuiTreeNodeFlags_DefaultOpen)) {
             _resetDirty |= ImGui::SliderFloat("Possibility of Russian Roulette", &_PRR, 0.1, 0.9);
-            _resetDirty |= ImGui::SliderInt("Samples Per Pixel", &_max_SPP, 20, 10000);
+            _resetDirty |= ImGui::SliderInt("Samples Per Pixel", &_max_SPP, 1, 100);
             _resetDirty |= ImGui::Checkbox("Shadow Ray", &_enableShadow);
+            _resetDirty |= ImGui::Checkbox("Cosine Weighted", &_enableCosineWeighted);
+            _resetDirty |= ImGui::Checkbox("Light Weighted", &_enableLightWeighted);
+
         }
         ImGui::Spacing();
 
@@ -98,14 +101,13 @@ namespace VCX::Labs::Rendering {
                 _buffer    = _frame.GetColorAttachment().Download<Engine::Formats::RGB8>();
             }
             assert(_task.joinable() == false);
-            std::mutex sumMutex;
             _task = std::thread([&]() {
-                thread_local std::random_device rd;
-                thread_local std::mt19937       gen(rd());
+                thread_local std::random_device                    rd;
+                thread_local std::mt19937                          gen(rd());
                 thread_local std::uniform_real_distribution<float> dist_real(0.0f, 1.0f);
-
-                auto const width  = _buffer.GetSizeX();
-                auto const height = _buffer.GetSizeY();
+                auto const                                         width  = _buffer.GetSizeX();
+                auto const                                         height = _buffer.GetSizeY();
+                sum.assign(width, std::vector<glm::vec3>(height, glm::vec3(0.0f)));
                 if (_pixelIndex == 0 && _treeDirty) {
                     Engine::Scene const & scene = GetScene(_sceneIdx);
                     _intersector.InitScene(&scene);
@@ -113,15 +115,16 @@ namespace VCX::Labs::Rendering {
                 }
                 // Render into tex.
 
-                _pixelIndex = 0;
-                while (_pixelIndex < std::size_t(width) * height) {
-                    glm::vec3 tot(0.0f);
-                    int          i    = _pixelIndex % width;
-                    int          j    = _pixelIndex / width;
-                    for (int spp = 0; spp < _max_SPP; spp++) {
-                        float        step = 1.0f;
-                        float        di = dist_real(gen), dj = dist_real(gen);
-                        //float        di = 0.5, dj = 0.5;
+                for (int spp = 0; spp < _max_SPP; spp++) {
+                    curr_spp = spp;
+                    _pixelIndex = 0;
+                    while (_pixelIndex < std::size_t(width) * height) {
+                        glm::vec3 tot(0.0f);
+                        int       i    = _pixelIndex % width;
+                        int       j    = _pixelIndex / width;
+                        float     step = 1.0f;
+                        float     di = dist_real(gen), dj = dist_real(gen);
+                        // float        di = 0.5, dj = 0.5;
                         auto const & camera    = _sceneObject.Camera;
                         glm::vec3    lookDir   = glm::normalize(camera.Target - camera.Eye);
                         glm::vec3    rightDir  = glm::normalize(glm::cross(lookDir, camera.Up));
@@ -131,14 +134,13 @@ namespace VCX::Labs::Rendering {
                         lookDir += fovFactor * (2.0f * (j + dj) / height - 1.0f) * upDir;
                         lookDir += fovFactor * aspect * (2.0f * (i + di) / width - 1.0f) * rightDir;
                         Ray       initialRay(camera.Eye, glm::normalize(lookDir));
-                        glm::vec3 res = PathTrace(_intersector, initialRay, _PRR, _enableShadow,gen);
+                        glm::vec3 res = PathTrace(_intersector, initialRay, _PRR, _enableShadow,_enableCosineWeighted,_enableLightWeighted, gen);
                         assert(i < width && j < height);
-                        tot += glm::pow(res, glm::vec3(1.0 / 2.2));
-                        
+                        sum[i][j] += glm::pow(res, glm::vec3(1.0 / 2.2));
+                        _buffer.At(i, j) = sum[i][j] / (float) (spp + 1);
+                        ++_pixelIndex;
+                        if (_stopFlag) return;
                     }
-                    _buffer.At(i, j) = tot / (float)(_max_SPP + 1);
-                    ++_pixelIndex;
-                    if (_stopFlag) return;
                 }
             });
         }

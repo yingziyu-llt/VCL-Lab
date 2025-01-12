@@ -6,8 +6,8 @@ namespace VCX::Labs::Rendering {
 
     App::App() :
         _ui(Labs::Common::UIOptions { }),
-        _caseRayTracing({ ExampleScene::Floor, ExampleScene::CornellBox, ExampleScene::WhiteOak, ExampleScene::SportsCar, ExampleScene::BreakfastRoom, ExampleScene::Sibenik, ExampleScene::Sponza }) ,
-        _casePathTracing({ ExampleScene::Floor, ExampleScene::CornellBox, ExampleScene::WhiteOak, ExampleScene::SportsCar, ExampleScene::BreakfastRoom, ExampleScene::Sibenik, ExampleScene::Sponza }) {
+        _caseRayTracing({ ExampleScene::Floor, ExampleScene::CornellBox, ExampleScene::WhiteOak, ExampleScene::Sponza }) ,
+        _casePathTracing({ ExampleScene::Floor, ExampleScene::CornellBox, ExampleScene::CornellBoxArea }) {
     }
 
     void App::OnFrame() {
