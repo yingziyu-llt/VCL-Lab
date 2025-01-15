@@ -54,6 +54,7 @@ namespace VCX::Assets {
             "assets/scenes/white_oak/white_oak.yaml",
             "assets/scenes/sports_car/sports_car.yaml",
             "assets/scenes/sibenik/sibenik.yaml",
+            "assets/scenes/cornell_box_sphere_2/cornell_box_sphere.yaml"
         })
     };
 
@@ -68,5 +69,6 @@ namespace VCX::Assets {
         WhiteOak,
         SportsCar,
         Sibenik,
+        CornellBoxSphere
     };
 }

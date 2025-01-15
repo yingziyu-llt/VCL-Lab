@@ -134,7 +134,7 @@ namespace VCX::Labs::Rendering {
                         lookDir += fovFactor * (2.0f * (j + dj) / height - 1.0f) * upDir;
                         lookDir += fovFactor * aspect * (2.0f * (i + di) / width - 1.0f) * rightDir;
                         Ray       initialRay(camera.Eye, glm::normalize(lookDir));
-                        glm::vec3 res = PathTrace(_intersector, initialRay, _PRR, _enableShadow,_enableCosineWeighted,_enableLightWeighted, gen);
+                        glm::vec3 res = PathTrace(_intersector, initialRay, _PRR, _enableShadow,_enableCosineWeighted,_enableLightWeighted, gen,1);
                         assert(i < width && j < height);
                         sum[i][j] += glm::pow(res, glm::vec3(1.0 / 2.2));
                         _buffer.At(i, j) = sum[i][j] / (float) (spp + 1);

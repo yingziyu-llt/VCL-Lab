@@ -16,20 +16,27 @@ Lights:
     Position3: [253, 548, 236.2]
     Intensity: [100, 100, 100]
 
+
 Materials:
   - Name: wall
     Blend: Opaque
     Diffuse: [.4, .4, .4]
   - Name: left
     Blend: Opaque
-    Diffuse: [.5, .0, .0]
+    Diffuse: [0.161,0.133,0.427]
   - Name: right
     Blend: Opaque
-    Diffuse: [.0, .5, .0]
+    Diffuse: [0.6300,0.0650,0.0500]
   - Name: box
     Blend: Opaque
     Diffuse: [.5, .5, .5]
     Specular: [.4, .4, .4, 32.]
+  - Name: glass
+    Blend: Transparent
+    Diffuse: [0,0,0]
+    Specular: [.4, .4, .4, 32.]
+    Refractive: [.75, .75, .75]
+    RefractiveIndex: 1.5
 
 Models:
   - Mesh: wall.obj
@@ -40,5 +47,5 @@ Models:
     Material: right
   - Mesh: tall_block.obj
     Material: box
-  - Mesh: short_block.obj
-    Material: box
+  - Mesh: short_block_2.obj
+    Material: glass
