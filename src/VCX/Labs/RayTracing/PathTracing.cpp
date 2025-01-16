@@ -9,25 +9,17 @@ namespace VCX::Labs::Rendering {
         std::uniform_real_distribution<float> dist(0, 1);
         float                                 u = dist(gen);
         float                                 v = dist(gen);
-
-        // 根据 Phong BRDF 的分布生成采样方向
         float phi   = 2.0f * glm::pi<float>() * u;
         float theta = acos(pow(v, 1.0f / (shininess + 1.0f)));
-
-        // 转换为笛卡尔坐标
         float x = sin(theta) * cos(phi);
         float y = sin(theta) * sin(phi);
         float z = cos(theta);
-
-        // 构建局部坐标系
         glm::vec3 reflectDir = glm::reflect(-viewDir, normal);
         glm::vec3 tangent    = glm::normalize(glm::cross(reflectDir, glm::vec3(0, 1, 0)));
         if (glm::length(tangent) < 1e-5f) {
             tangent = glm::normalize(glm::cross(reflectDir, glm::vec3(1, 0, 0)));
         }
         glm::vec3 bitangent = glm::cross(reflectDir, tangent);
-
-        // 将采样方向转换到世界坐标系
         return glm::normalize(tangent * x + bitangent * y + reflectDir * z);
     }
 
@@ -142,11 +134,10 @@ namespace VCX::Labs::Rendering {
             glm::vec3 L_indirect(0);
             glm::vec3 dir;
             if (enableCosweighted) {
-                float epsilon1 = dist_real(gen);
-                float epsilon2 = dist_real(gen);
-                float theta    = acos(sqrt(1.0f - epsilon1));
-                float phi      = 2.0f * pi * epsilon2;
-                dir            = glm::vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+                float theta,phi;
+                theta = dist_real(gen);
+                phi = dist_real(gen);
+                dir = glm::vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
             } else {
                 dir = BRDFWeightedSample(n, -ray.Direction, shininess, gen);
             }

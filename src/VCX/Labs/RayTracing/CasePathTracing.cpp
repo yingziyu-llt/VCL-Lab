@@ -1,7 +1,7 @@
 #include "Labs/RayTracing/CasePathTracing.h"
 #include <future>
 namespace VCX::Labs::Rendering {
-
+    
     CasePathTracing::CasePathTracing(std::initializer_list<Assets::ExampleScene> && scenes):
         _scenes(scenes),
         _program(
@@ -47,7 +47,8 @@ namespace VCX::Labs::Rendering {
                 if (_task.joinable()) _task.join();
             }
         } else if (ImGui::Button("Start Rendering")) _stopFlag = false;
-        ImGui::ProgressBar(float(_buffer.GetSizeX() * _buffer.GetSizeY() * curr_spp + _pixelIndex) / (_buffer.GetSizeX() * _buffer.GetSizeY() * _max_SPP));
+        ImGui::ProgressBar(float(curr_spp) / (_max_SPP));
+        ImGui::ProgressBar(float(_pixelIndex) / (_buffer.GetSizeX() * _buffer.GetSizeY()));
         Common::ImGuiHelper::SaveImage(_texture, GetBufferSize(), true);
         ImGui::Spacing();
 
@@ -55,8 +56,8 @@ namespace VCX::Labs::Rendering {
             _resetDirty |= ImGui::SliderFloat("Possibility of Russian Roulette", &_PRR, 0.1, 0.9);
             _resetDirty |= ImGui::SliderInt("Samples Per Pixel", &_max_SPP, 1, 100);
             _resetDirty |= ImGui::Checkbox("Shadow Ray", &_enableShadow);
-            _resetDirty |= ImGui::Checkbox("Cosine Weighted", &_enableCosineWeighted);
-            _resetDirty |= ImGui::Checkbox("Light Weighted", &_enableLightWeighted);
+            _resetDirty |= ImGui::Checkbox("BRDF Weighted", &_enableCosineWeighted);
+            _resetDirty |= ImGui::Checkbox("Direct light", &_enableLightWeighted);
 
         }
         ImGui::Spacing();
@@ -134,7 +135,7 @@ namespace VCX::Labs::Rendering {
                         lookDir += fovFactor * (2.0f * (j + dj) / height - 1.0f) * upDir;
                         lookDir += fovFactor * aspect * (2.0f * (i + di) / width - 1.0f) * rightDir;
                         Ray       initialRay(camera.Eye, glm::normalize(lookDir));
-                        glm::vec3 res = PathTrace(_intersector, initialRay, _PRR, _enableShadow,_enableCosineWeighted,_enableLightWeighted, gen,1);
+                        glm::vec3 res = PathTrace(_intersector, initialRay, _PRR, _enableShadow,!_enableCosineWeighted,_enableLightWeighted, gen,1);
                         assert(i < width && j < height);
                         sum[i][j] += glm::pow(res, glm::vec3(1.0 / 2.2));
                         _buffer.At(i, j) = sum[i][j] / (float) (spp + 1);

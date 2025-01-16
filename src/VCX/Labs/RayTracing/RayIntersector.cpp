@@ -179,7 +179,7 @@ namespace VCX::Labs::Rendering {
         node->Right_ = BuildBVH(right, std::make_shared<BVHNode>(depth + 1), depth + 1);
         return node;
     }
-    void BVGRayIntersector::InitScene(const Engine::Scene * scene) {
+    void BVHRayIntersector::InitScene(const Engine::Scene * scene) {
         SceneBVH_ = new BVHTree(), InternalScene = scene;
         std::vector<Face> faces;
         for (int i = 0; i < scene->Models.size(); ++i) {
@@ -197,11 +197,11 @@ namespace VCX::Labs::Rendering {
         SceneBVH_->Root_ = SceneBVH_->BuildBVH(faces, std::make_shared<BVHNode>(), 0);
     }
 
-    BVGRayIntersector::~BVGRayIntersector() {
+    BVHRayIntersector::~BVHRayIntersector() {
         delete SceneBVH_;
     }
 
-    RayHit BVGRayIntersector::IntersectRay(const Ray & ray) const {
+    RayHit BVHRayIntersector::IntersectRay(const Ray & ray) const {
         RayHit result;
 
         std::stack<std::shared_ptr<BVHNode>> stack;

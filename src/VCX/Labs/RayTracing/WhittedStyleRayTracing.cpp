@@ -59,13 +59,13 @@ namespace VCX::Labs::Rendering {
                 glm::vec3 R = alpha * glm::vec3(1.0f);
                 color += weight * R * result;
                 weight *= glm::vec3(1.0f) - R;
-                ray = Ray(pos, ray.Direction);
+                ray = Ray(pos + ray.Direction * 0.01f, ray.Direction);
             } else {
                 glm::vec3 R = ks * glm::vec3(0.5f);
                 color += weight * (glm::vec3(1.0f) - R) * result;
                 weight *= R;
                 glm::vec3 out_dir = ray.Direction - glm::vec3(2.0f) * n * glm::dot(n, ray.Direction);
-                ray               = Ray(pos, out_dir);
+                ray               = Ray(pos + out_dir * 0.01f, out_dir);
             }
         }
 

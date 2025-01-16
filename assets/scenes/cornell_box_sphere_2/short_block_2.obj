@@ -1725,8 +1725,6 @@ vt 0.9706 -0.0000 0.0000
 # 628 texture coords
 
 g leftSphere
-usemtl leftSphere
-
 s 1
 f 1/1/1 2/2/2 3/3/3
 f 1/4/1 3/3/3 4/5/4

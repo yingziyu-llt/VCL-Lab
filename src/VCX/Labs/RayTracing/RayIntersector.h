@@ -75,16 +75,16 @@ namespace VCX::Labs::Rendering {
         ~BVHTree();
     };
 
-    class BVGRayIntersector {
+    class BVHRayIntersector {
     public:
         BVHTree *             SceneBVH_;
         const Engine::Scene * InternalScene;
-        BVGRayIntersector() {};
+        BVHRayIntersector() {};
         void InitScene(const Engine::Scene * scene);
-        ~BVGRayIntersector();
+        ~BVHRayIntersector();
         RayHit IntersectRay(const Ray & ray) const;
     };
-    using RayIntersector = BVGRayIntersector;
+    using RayIntersector = BVHRayIntersector;
     glm::vec3 RayTrace(const RayIntersector & intersector, Ray ray, int maxDepth, bool enableShadow);
 
 } // namespace VCX::Labs::Rendering
