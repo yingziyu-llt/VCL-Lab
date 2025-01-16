@@ -11,10 +11,15 @@ Cameras:
 
 Lights:
   - Type: Area
-    Position: [328, 548, 279.5]
-    Position2: [253, 548, 322.8]
-    Position3: [253, 548, 236.2]
-    Intensity: [100, 100, 100]
+    Position: [213.0,548,227.0]
+    Position: [343.0,548,227.0]
+    Position2: [213.0,548,332.0]
+    Intensity: [20, 20, 20]
+  - Type: Area
+    Position: [343.0,548,227.0]
+    Position2: [343.0,548,332.0]
+    Position3: [213.0,548,332.0]
+    Intensity: [20, 20, 20]
 
 
 Materials:
@@ -35,8 +40,10 @@ Materials:
     Blend: Transparent
     Diffuse: [0,0,0]
     Specular: [.4, .4, .4, 32.]
-    Refractive: [.75, .75, .75]
-    RefractiveIndex: 1.5
+  - Name: light
+    Blend: Opaque
+    Diffuse: [0,0,0]
+    Emission: [100,100,100]
 
 Models:
   - Mesh: wall.obj
@@ -49,3 +56,5 @@ Models:
     Material: box
   - Mesh: short_block_2.obj
     Material: glass
+  - Mesh: light.obj
+    Material: light

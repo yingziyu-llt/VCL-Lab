@@ -18,6 +18,7 @@ namespace VCX::Labs::Rendering {
         Engine::GL::UniqueTexture2D Albedo;
         Engine::GL::UniqueTexture2D MetaSpec;
         Engine::GL::UniqueTexture2D Height;
+        glm::vec3                   Emission;
 
         explicit MaterialObject(Engine::Material const & material);
     };

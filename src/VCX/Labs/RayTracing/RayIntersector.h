@@ -2,15 +2,15 @@
 
 #include "Engine/Scene.h"
 #include "Labs/RayTracing/Ray.h"
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <numeric>
 #include <spdlog/spdlog.h>
-#include <vector>
-#include <algorithm>
 #include <stack>
+#include <vector>
 
 namespace VCX::Labs::Rendering {
-    
+
     constexpr float EPS1 = 1e-2f;
     constexpr float EPS2 = 1e-8f;
     constexpr float EPS3 = 1e-4f;
@@ -31,6 +31,7 @@ namespace VCX::Labs::Rendering {
         glm::vec3         IntersectNormal;
         glm::vec4         IntersectAlbedo;
         glm::vec4         IntersectMetaSpec;
+        glm::vec3         IntersectEmission;
     };
 
     class Face {
@@ -55,17 +56,18 @@ namespace VCX::Labs::Rendering {
 
     class BVHNode {
     public:
-        AABB BoundingBox_;
-        std::shared_ptr<BVHNode> Left_ = nullptr;
+        AABB                     BoundingBox_;
+        std::shared_ptr<BVHNode> Left_  = nullptr;
         std::shared_ptr<BVHNode> Right_ = nullptr;
-        std::vector<Face> Faces_;
+        std::vector<Face>        Faces_;
         BVHNode(int depth);
-        BVHNode() : BoundingBox_() {}
+        BVHNode():
+            BoundingBox_() {}
         BVHNode(const std::vector<Face> & faces, int depth);
         bool is_leaf() const;
     };
 
-    class BVHTree{
+    class BVHTree {
     public:
         std::shared_ptr<BVHNode> Root_;
         BVHTree();
@@ -75,8 +77,8 @@ namespace VCX::Labs::Rendering {
 
     class BVGRayIntersector {
     public:
-        BVHTree *SceneBVH_;
-        const Engine::Scene *InternalScene;
+        BVHTree *             SceneBVH_;
+        const Engine::Scene * InternalScene;
         BVGRayIntersector() {};
         void InitScene(const Engine::Scene * scene);
         ~BVGRayIntersector();

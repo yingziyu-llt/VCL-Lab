@@ -57,6 +57,7 @@ namespace VCX::Engine {
         // PBR workflow II:    MetaSpec = [Specular (RGB), Glossiness (Alpha)]
         Texture2D<Formats::RGBA8>     MetaSpec { 1, 1 };
         Texture2D<Formats::R8>        Height   { 1, 1 };
+        glm::vec3                     Emission { 0, 0, 0 }; // Change to glm::vec3
     };
 
     struct Model {

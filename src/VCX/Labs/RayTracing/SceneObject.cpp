@@ -31,7 +31,8 @@ namespace VCX::Labs::Rendering {
     MaterialObject::MaterialObject(Engine::Material const & material) :
         Albedo(MakeTexture(material.Albedo, 0)),
         MetaSpec(MakeTexture(material.MetaSpec, 1)),
-        Height(MakeTexture(material.Height, 2)) {
+        Height(MakeTexture(material.Height, 2)),
+        Emission(material.Emission) {
     }
 
     static Engine::GL::UniqueIndexedRenderItem MakeRenderItem(Engine::SurfaceMesh const & mesh) {

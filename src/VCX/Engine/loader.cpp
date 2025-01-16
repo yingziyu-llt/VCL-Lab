@@ -293,6 +293,8 @@ namespace VCX::Engine {
             material.Height.Fill(0);
             SetMap1(material.Height, mats[i].bump_texname);
 
+            material.Emission = glm::vec3(mats[i].emission[0], mats[i].emission[1], mats[i].emission[2]);
+
             std::unordered_map<std::tuple<int, int, int>, std::uint32_t> vtxHashList;
             AddUniqueVertices(attrib, perMatFaces[i], vtxHashList, model.Mesh);
         }
@@ -400,6 +402,9 @@ namespace VCX::Engine {
                 material.Height.Fill(0);
                 SetMap1(material.Height, materialNode["HeightMap"]);
 
+                glm::vec3 emissionFactor(0);
+                SetValue(emissionFactor, materialNode["Emission"]);
+                material.Emission = emissionFactor;
                 scene.Materials.push_back(std::move(material));
             }
         }

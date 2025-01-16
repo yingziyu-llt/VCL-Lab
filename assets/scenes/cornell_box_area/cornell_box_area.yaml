@@ -11,10 +11,11 @@ Cameras:
 
 Lights:
   - Type: Area
-    Position: [328, 548, 279.5]
-    Position2: [253, 548, 322.8]
-    Position3: [253, 548, 236.2]
+    Position: [343, 548, 227]
+    Position2: [213, 548, 332.8]
+    Position3: [213, 548, 227]
     Intensity: [100, 100, 100]
+
 
 Materials:
   - Name: wall
@@ -30,6 +31,10 @@ Materials:
     Blend: Opaque
     Diffuse: [.5, .5, .5]
     Specular: [.4, .4, .4, 32.]
+  - Name: light
+    Blend: Opaque
+    Diffuse: [0,0,0]
+    Emission: [100,100,100]
 
 Models:
   - Mesh: wall.obj
@@ -42,3 +47,5 @@ Models:
     Material: box
   - Mesh: short_block.obj
     Material: box
+  - Mesh: light.obj
+    Material: light

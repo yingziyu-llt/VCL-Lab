@@ -7,7 +7,7 @@ namespace VCX::Labs::Rendering {
         if (abs(glm::dot(ray.Direction, normal)) < 1e-6)
             return false;
         output.t = glm::dot(p1 - ray.Origin, normal) / glm::dot(ray.Direction, normal);
-        if (output.t <= 1e-2)
+        if (output.t <= 1e-4)
             return false;
         output.u = glm::dot(p3 - p1, glm::cross(ray.Direction, ray.Origin - p1)) / glm::dot(ray.Direction, normal);
         output.v = glm::dot(-p2 + p1, glm::cross(ray.Direction, ray.Origin - p1)) / glm::dot(ray.Direction, normal);
@@ -43,6 +43,10 @@ namespace VCX::Labs::Rendering {
         glm::vec4 albedo       = GetTexture(material.Albedo, uvCoord);
         glm::vec3 diffuseColor = albedo;
         return glm::vec4(glm::pow(diffuseColor, glm::vec3(2.2f)), albedo.w);
+    }
+
+    glm::vec3 GetEmission(Engine::Material const & material) {
+        return material.Emission;
     }
 
     // Triangle Methods
@@ -262,7 +266,7 @@ namespace VCX::Labs::Rendering {
         glm::vec2 uvCoord               = (1.0f - umin - vmin) * uv1 + umin * uv2 + vmin * uv3;
         result.IntersectAlbedo          = GetAlbedo(material, uvCoord);
         result.IntersectMetaSpec        = GetTexture(material.MetaSpec, uvCoord);
-
+        result.IntersectEmission        = material.Emission;
         return result;
     }
 } // namespace VCX::Labs::Rendering
