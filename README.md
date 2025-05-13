@@ -28,7 +28,7 @@ $$
 
 ```sh
 xmake build ray-tracing && xmake run ray-tracing
-
+```
 ## 2. 实现思路
 
 ### 2.1 空间加速结构
